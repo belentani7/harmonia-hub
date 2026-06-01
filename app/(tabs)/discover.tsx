@@ -3,98 +3,64 @@ import {
   View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator, FlatList, Image, Alert,
 } from 'react-native';
 import { ScreenContainer } from '@/components/screen-container';
+import { GlassCard } from '@/components/glass-card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { TrackRow } from '@/components/track-row';
 import { MiniPlayer } from '@/components/mini-player';
 import { usePlayer } from '@/lib/player-context';
-import { MOCK_PLAYLISTS } from '@/lib/mock-data';
-import { Mood, Context, Genre, Playlist, Track } from '@/shared/types';
+import { GLASS_COLORS } from '@/lib/glass-morphism';
+import { Mood, Playlist, Track } from '@/shared/types';
 import { trpc } from '@/lib/trpc';
 
-const MOODS: { id: Mood; label: string; emoji: string; color: string }[] = [
-  { id: 'focus', label: 'Focus', emoji: '🎯', color: '#4A90E2' },
-  { id: 'chill', label: 'Chill', emoji: '🌊', color: '#50C878' },
-  { id: 'energy', label: 'Energy', emoji: '⚡', color: '#FF6B35' },
-  { id: 'sad', label: 'Sad', emoji: '🌧️', color: '#9B59B6' },
-  { id: 'party', label: 'Party', emoji: '🎉', color: '#F39C12' },
-  { id: 'sleep', label: 'Sleep', emoji: '🌙', color: '#2C3E50' },
-  { id: 'romantic', label: 'Romantic', emoji: '💕', color: '#E91E63' },
-  { id: 'workout', label: 'Workout', emoji: '💪', color: '#F44336' },
-];
-
-const CONTEXTS: { id: Context; label: string; emoji: string }[] = [
-  { id: 'work', label: 'Work', emoji: '💼' },
-  { id: 'gym', label: 'Gym', emoji: '🏋️' },
-  { id: 'sleep', label: 'Sleep', emoji: '😴' },
-  { id: 'drive', label: 'Drive', emoji: '🚗' },
-  { id: 'study', label: 'Study', emoji: '📚' },
-  { id: 'party', label: 'Party', emoji: '🎊' },
-  { id: 'meditation', label: 'Meditate', emoji: '🧘' },
-];
-
-const GENRES: { id: Genre; label: string }[] = [
-  { id: 'pop', label: 'Pop' },
-  { id: 'rock', label: 'Rock' },
-  { id: 'hiphop', label: 'Hip-Hop' },
-  { id: 'electronic', label: 'Electronic' },
-  { id: 'jazz', label: 'Jazz' },
-  { id: 'classical', label: 'Classical' },
-  { id: 'rnb', label: 'R&B' },
-  { id: 'indie', label: 'Indie' },
-  { id: 'latin', label: 'Latin' },
-  { id: 'metal', label: 'Metal' },
+const MOODS: { id: Mood; label: string; emoji: string }[] = [
+  { id: 'focus', label: 'Focus', emoji: '🎯' },
+  { id: 'chill', label: 'Chill', emoji: '🌊' },
+  { id: 'energy', label: 'Energy', emoji: '⚡' },
+  { id: 'sad', label: 'Sad', emoji: '🌧️' },
+  { id: 'party', label: 'Party', emoji: '🎉' },
+  { id: 'sleep', label: 'Sleep', emoji: '🌙' },
+  { id: 'romantic', label: 'Romantic', emoji: '💕' },
+  { id: 'workout', label: 'Workout', emoji: '💪' },
 ];
 
 export default function DiscoverScreen() {
   const { currentTrack, playTrack, openPlayer } = usePlayer();
   const [selectedMood, setSelectedMood] = useState<Mood | null>(null);
-  const [selectedContext, setSelectedContext] = useState<Context | null>(null);
-  const [selectedGenres, setSelectedGenres] = useState<Genre[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedPlaylist, setGeneratedPlaylist] = useState<Playlist | null>(null);
-  const [generationError, setGenerationError] = useState<string | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [creativity, setCreativity] = useState<'high' | 'low'>('high');
+  const [strictMode, setStrictMode] = useState(false);
+  const [trackCount, setTrackCount] = useState(8);
 
   const generateMutation = trpc.playlist.generate.useMutation({
     onSuccess: (data: any) => {
       setGeneratedPlaylist(data as Playlist);
       setIsGenerating(false);
-      setGenerationError(null);
     },
     onError: (error: any) => {
-      console.error('Playlist generation error:', error);
-      setGenerationError(error.message || 'Failed to generate playlist. Using fallback...');
-      // Fallback to mock data
-      const mockPlaylist = MOCK_PLAYLISTS.find(p => p.mood === selectedMood) || MOCK_PLAYLISTS[0];
-      setGeneratedPlaylist(mockPlaylist);
+      console.error('Generation error:', error);
+      Alert.alert('Error', 'Failed to generate playlist. Try again.');
       setIsGenerating(false);
     },
   });
 
-  const toggleGenre = (genre: Genre) => {
-    setSelectedGenres(prev =>
-      prev.includes(genre) ? prev.filter(g => g !== genre) : [...prev, genre]
-    );
-  };
-
   const handleGenerate = async () => {
     if (!selectedMood) {
-      Alert.alert('Select a Mood', 'Please select a mood to generate a playlist.');
+      Alert.alert('Select a Mood', 'Choose a mood to generate a playlist.');
       return;
     }
     setIsGenerating(true);
     setGeneratedPlaylist(null);
-    setGenerationError(null);
 
     try {
       await generateMutation.mutateAsync({
         mood: selectedMood,
-        context: selectedContext || undefined,
-        genres: selectedGenres.length > 0 ? selectedGenres : undefined,
-        trackCount: 8,
+        trackCount,
       });
     } catch (error) {
-      // Error is handled in onError callback
       console.error('Mutation error:', error);
+      setIsGenerating(false);
     }
   };
 
@@ -105,37 +71,31 @@ export default function DiscoverScreen() {
     }
   };
 
-  const getMoodColor = (mood: Mood) => {
-    const moodObj = MOODS.find(m => m.id === mood);
-    return moodObj?.color || '#1DB954';
-  };
-
   return (
     <View style={styles.outerContainer}>
-      <ScreenContainer containerClassName="bg-[#121212]" edges={['top', 'left', 'right']}>
+      <ScreenContainer containerClassName="bg-[#0A0A0E]" edges={['top', 'left', 'right']}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.title}>AI Playlist Generator</Text>
-            <Text style={styles.subtitle}>Create playlists powered by mood and context</Text>
+            <Text style={styles.title}>AI Generator</Text>
+            <Text style={styles.subtitle}>Select your mood and let AI create</Text>
           </View>
 
-          {/* Mood Selector */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>How are you feeling?</Text>
+          {/* Mood Grid */}
+          <View style={styles.moodSection}>
             <View style={styles.moodGrid}>
               {MOODS.map(mood => (
                 <Pressable
                   key={mood.id}
-                  onPress={() => setSelectedMood(mood.id)}
+                  onPress={() => setSelectedMood(selectedMood === mood.id ? null : mood.id)}
                   style={({ pressed }) => [
-                    styles.moodChip,
-                    selectedMood === mood.id && { backgroundColor: mood.color + '30', borderColor: mood.color },
+                    styles.moodBtn,
+                    selectedMood === mood.id && styles.moodBtnActive,
                     pressed && { opacity: 0.8 },
                   ]}
                 >
                   <Text style={styles.moodEmoji}>{mood.emoji}</Text>
-                  <Text style={[styles.moodLabel, selectedMood === mood.id && { color: mood.color }]}>
+                  <Text style={[styles.moodLabel, selectedMood === mood.id && { color: GLASS_COLORS.purpleSoft }]}>
                     {mood.label}
                   </Text>
                 </Pressable>
@@ -143,50 +103,84 @@ export default function DiscoverScreen() {
             </View>
           </View>
 
-          {/* Context Selector */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Where are you?</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.contextScroll}>
-              {CONTEXTS.map(context => (
-                <Pressable
-                  key={context.id}
-                  onPress={() => setSelectedContext(selectedContext === context.id ? null : context.id)}
-                  style={({ pressed }) => [
-                    styles.contextChip,
-                    selectedContext === context.id && styles.contextChipActive,
-                    pressed && { opacity: 0.7 },
-                  ]}
-                >
-                  <Text style={styles.contextEmoji}>{context.emoji}</Text>
-                  <Text style={[styles.contextLabel, selectedContext === context.id && { color: '#1DB954' }]}>
-                    {context.label}
-                  </Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-          </View>
-
-          {/* Genre Selector */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Genres (optional)</Text>
-            <View style={styles.genreGrid}>
-              {GENRES.map(genre => (
-                <Pressable
-                  key={genre.id}
-                  onPress={() => toggleGenre(genre.id)}
-                  style={({ pressed }) => [
-                    styles.genrePill,
-                    selectedGenres.includes(genre.id) && styles.genrePillActive,
-                    pressed && { opacity: 0.8 },
-                  ]}
-                >
-                  <Text style={[styles.genreLabel, selectedGenres.includes(genre.id) && { color: '#121212' }]}>
-                    {genre.label}
-                  </Text>
-                </Pressable>
-              ))}
+          {/* Advanced Settings - Hidden by Default */}
+          <Pressable
+            onPress={() => setShowAdvanced(!showAdvanced)}
+            style={({ pressed }) => [styles.advancedToggle, pressed && { opacity: 0.7 }]}
+          >
+            <IconSymbol
+              name={showAdvanced ? 'chevron.up' : 'chevron.down'}
+              size={16}
+              color={GLASS_COLORS.textMuted}
+            />
+            <Text style={styles.advancedLabel}>Advanced Settings</Text>
+            <View style={styles.advancedBadge}>
+              <Text style={styles.advancedBadgeText}>Pro</Text>
             </View>
-          </View>
+          </Pressable>
+
+          {/* Advanced Settings Panel */}
+          {showAdvanced && (
+            <GlassCard variant="subtle" style={styles.advancedPanel}>
+              {/* Creativity Level */}
+              <View style={styles.settingRow}>
+                <View>
+                  <Text style={styles.settingLabel}>Creativity</Text>
+                  <Text style={styles.settingValue}>{creativity === 'high' ? 'Experimental' : 'Conservative'}</Text>
+                </View>
+                <View style={styles.toggleGroup}>
+                  <Pressable
+                    onPress={() => setCreativity('low')}
+                    style={[styles.toggleBtn, creativity === 'low' && styles.toggleBtnActive]}
+                  >
+                    <Text style={[styles.toggleText, creativity === 'low' && { color: GLASS_COLORS.black }]}>Low</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setCreativity('high')}
+                    style={[styles.toggleBtn, creativity === 'high' && styles.toggleBtnActive]}
+                  >
+                    <Text style={[styles.toggleText, creativity === 'high' && { color: GLASS_COLORS.black }]}>High</Text>
+                  </Pressable>
+                </View>
+              </View>
+
+              {/* Strict Mode */}
+              <View style={styles.settingRow}>
+                <View>
+                  <Text style={styles.settingLabel}>Strict Mode</Text>
+                  <Text style={styles.settingValue}>{strictMode ? 'Enabled' : 'Disabled'}</Text>
+                </View>
+                <Pressable
+                  onPress={() => setStrictMode(!strictMode)}
+                  style={[styles.toggleSwitch, strictMode && styles.toggleSwitchActive]}
+                >
+                  <View style={[styles.toggleDot, strictMode && styles.toggleDotActive]} />
+                </Pressable>
+              </View>
+
+              {/* Track Count */}
+              <View style={styles.settingRow}>
+                <View>
+                  <Text style={styles.settingLabel}>Tracks</Text>
+                  <Text style={styles.settingValue}>{trackCount}</Text>
+                </View>
+                <View style={styles.countControls}>
+                  <Pressable
+                    onPress={() => setTrackCount(Math.max(4, trackCount - 1))}
+                    style={({ pressed }) => [styles.countBtn, pressed && { opacity: 0.7 }]}
+                  >
+                    <IconSymbol name="minus" size={14} color={GLASS_COLORS.textPrimary} />
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setTrackCount(Math.min(20, trackCount + 1))}
+                    style={({ pressed }) => [styles.countBtn, pressed && { opacity: 0.7 }]}
+                  >
+                    <IconSymbol name="plus" size={14} color={GLASS_COLORS.textPrimary} />
+                  </Pressable>
+                </View>
+              </View>
+            </GlassCard>
+          )}
 
           {/* Generate Button */}
           <View style={styles.generateContainer}>
@@ -201,25 +195,17 @@ export default function DiscoverScreen() {
             >
               {isGenerating ? (
                 <View style={styles.generateBtnContent}>
-                  <ActivityIndicator size="small" color="#121212" />
+                  <ActivityIndicator size="small" color={GLASS_COLORS.black} />
                   <Text style={styles.generateBtnText}>Generating...</Text>
                 </View>
               ) : (
                 <View style={styles.generateBtnContent}>
-                  <IconSymbol name="sparkles" size={20} color="#121212" />
-                  <Text style={styles.generateBtnText}>Generate Playlist</Text>
+                  <IconSymbol name="sparkles" size={18} color={GLASS_COLORS.black} />
+                  <Text style={styles.generateBtnText}>Generate</Text>
                 </View>
               )}
             </Pressable>
           </View>
-
-          {/* Error Message */}
-          {generationError && (
-            <View style={styles.errorBanner}>
-              <IconSymbol name="exclamationmark.triangle.fill" size={16} color="#F39C12" />
-              <Text style={styles.errorText}>{generationError}</Text>
-            </View>
-          )}
 
           {/* Generated Playlist */}
           {generatedPlaylist && (
@@ -234,10 +220,7 @@ export default function DiscoverScreen() {
                   <Text style={styles.playlistDescription} numberOfLines={2}>
                     {generatedPlaylist.description}
                   </Text>
-                  <View style={styles.playlistMeta}>
-                    <Text style={styles.playlistMood}>{generatedPlaylist.mood}</Text>
-                    <Text style={styles.playlistCount}>{generatedPlaylist.tracks.length} tracks</Text>
-                  </View>
+                  <Text style={styles.playlistCount}>{generatedPlaylist.tracks.length} tracks</Text>
                 </View>
               </View>
 
@@ -262,7 +245,7 @@ export default function DiscoverScreen() {
                 onPress={() => Alert.alert('Saved', 'Playlist saved to your library!')}
                 style={({ pressed }) => [styles.saveBtn, pressed && { opacity: 0.8 }]}
               >
-                <IconSymbol name="heart.fill" size={18} color="#1DB954" />
+                <IconSymbol name="heart.fill" size={16} color={GLASS_COLORS.purpleSoft} />
                 <Text style={styles.saveBtnText}>Save to Library</Text>
               </Pressable>
             </View>
@@ -279,112 +262,127 @@ export default function DiscoverScreen() {
 }
 
 const styles = StyleSheet.create({
-  outerContainer: { flex: 1, backgroundColor: '#121212' },
+  outerContainer: { flex: 1, backgroundColor: GLASS_COLORS.black },
   scrollContent: { paddingBottom: 20 },
-  header: { paddingHorizontal: 16, paddingVertical: 12, gap: 4 },
-  title: { color: '#FFFFFF', fontSize: 24, fontWeight: '800' },
-  subtitle: { color: '#B3B3B3', fontSize: 14 },
-  section: { marginTop: 20 },
-  sectionTitle: { color: '#FFFFFF', fontSize: 16, fontWeight: '700', paddingHorizontal: 16, marginBottom: 12 },
-  moodGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: 16,
-    gap: 10,
-  },
-  moodChip: {
+
+  header: { paddingHorizontal: 16, paddingVertical: 16, gap: 4 },
+  title: { color: GLASS_COLORS.textPrimary, fontSize: 24, fontWeight: '800' },
+  subtitle: { color: GLASS_COLORS.textMuted, fontSize: 14 },
+
+  moodSection: { paddingHorizontal: 16, marginTop: 12 },
+  moodGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  moodBtn: {
     width: '30%',
-    backgroundColor: '#1E1E1E',
-    borderRadius: 12,
+    backgroundColor: GLASS_COLORS.glassDark,
+    borderRadius: 16,
     padding: 12,
     alignItems: 'center',
     gap: 6,
     borderWidth: 1,
-    borderColor: '#333333',
+    borderColor: GLASS_COLORS.borderGlass,
   },
+  moodBtnActive: { backgroundColor: GLASS_COLORS.glassAccent, borderColor: GLASS_COLORS.purpleSoft },
   moodEmoji: { fontSize: 24 },
-  moodLabel: { color: '#B3B3B3', fontSize: 12, fontWeight: '600', textAlign: 'center' },
-  contextScroll: { paddingHorizontal: 16, gap: 10 },
-  contextChip: {
-    backgroundColor: '#1E1E1E',
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderWidth: 1,
-    borderColor: '#333333',
-  },
-  contextChipActive: { backgroundColor: '#1DB954', borderColor: '#1DB954' },
-  contextEmoji: { fontSize: 16 },
-  contextLabel: { color: '#B3B3B3', fontSize: 12, fontWeight: '600' },
-  genreGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: 16,
-    gap: 8,
-  },
-  genrePill: {
-    backgroundColor: '#1E1E1E',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: '#333333',
-  },
-  genrePillActive: { backgroundColor: '#1DB954', borderColor: '#1DB954' },
-  genreLabel: { color: '#B3B3B3', fontSize: 12, fontWeight: '600' },
-  generateContainer: { paddingHorizontal: 16, marginTop: 24 },
-  generateBtn: {
-    backgroundColor: '#1DB954',
-    borderRadius: 14,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  generateBtnDisabled: { backgroundColor: '#2A2A2A' },
-  generateBtnContent: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  generateBtnText: { color: '#121212', fontSize: 15, fontWeight: '700' },
-  errorBanner: {
+  moodLabel: { color: GLASS_COLORS.textMuted, fontSize: 11, fontWeight: '600', textAlign: 'center' },
+
+  advancedToggle: {
     marginHorizontal: 16,
-    marginTop: 16,
-    backgroundColor: '#F39C1220',
-    borderRadius: 10,
-    padding: 12,
+    marginTop: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    borderLeftWidth: 3,
-    borderLeftColor: '#F39C12',
+    gap: 8,
+    paddingVertical: 8,
   },
-  errorText: { color: '#F39C12', fontSize: 13, flex: 1 },
+  advancedLabel: { color: GLASS_COLORS.textMuted, fontSize: 13, fontWeight: '600', flex: 1 },
+  advancedBadge: { backgroundColor: GLASS_COLORS.purpleSoft, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4 },
+  advancedBadgeText: { color: GLASS_COLORS.black, fontSize: 10, fontWeight: '700' },
+
+  advancedPanel: { marginHorizontal: 16, marginTop: 12, padding: 16, gap: 16 },
+  settingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  settingLabel: { color: GLASS_COLORS.textPrimary, fontSize: 13, fontWeight: '600' },
+  settingValue: { color: GLASS_COLORS.textMuted, fontSize: 11, marginTop: 4 },
+
+  toggleGroup: { flexDirection: 'row', gap: 8 },
+  toggleBtn: {
+    backgroundColor: GLASS_COLORS.glassDark,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: GLASS_COLORS.borderGlass,
+  },
+  toggleBtnActive: { backgroundColor: GLASS_COLORS.purpleSoft, borderColor: GLASS_COLORS.purpleSoft },
+  toggleText: { color: GLASS_COLORS.textMuted, fontSize: 11, fontWeight: '600' },
+
+  toggleSwitch: {
+    backgroundColor: GLASS_COLORS.glassDark,
+    borderRadius: 12,
+    width: 40,
+    height: 24,
+    justifyContent: 'center',
+    paddingHorizontal: 2,
+  },
+  toggleSwitchActive: { backgroundColor: GLASS_COLORS.purpleSoft },
+  toggleDot: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: GLASS_COLORS.textMuted,
+  },
+  toggleDotActive: { backgroundColor: GLASS_COLORS.black, alignSelf: 'flex-end' },
+
+  countControls: { flexDirection: 'row', gap: 8 },
+  countBtn: {
+    backgroundColor: GLASS_COLORS.glassDark,
+    borderRadius: 8,
+    width: 28,
+    height: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: GLASS_COLORS.borderGlass,
+  },
+
+  generateContainer: { paddingHorizontal: 16, marginTop: 20 },
+  generateBtn: {
+    backgroundColor: GLASS_COLORS.purpleSoft,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  generateBtnDisabled: { backgroundColor: GLASS_COLORS.borderGlass },
+  generateBtnContent: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  generateBtnText: { color: GLASS_COLORS.black, fontSize: 15, fontWeight: '700' },
+
   playlistContainer: { marginHorizontal: 16, marginTop: 20, gap: 12 },
   playlistHeader: {
     flexDirection: 'row',
     gap: 12,
-    backgroundColor: '#1E1E1E',
+    backgroundColor: GLASS_COLORS.glassDark,
     borderRadius: 12,
     padding: 12,
+    borderWidth: 1,
+    borderColor: GLASS_COLORS.borderGlass,
   },
   playlistCover: { width: 80, height: 80, borderRadius: 8 },
   playlistInfo: { flex: 1, justifyContent: 'space-between' },
-  playlistTitle: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
-  playlistDescription: { color: '#B3B3B3', fontSize: 12, lineHeight: 16 },
-  playlistMeta: { flexDirection: 'row', gap: 8 },
-  playlistMood: { color: '#1DB954', fontSize: 11, fontWeight: '600', textTransform: 'capitalize' },
-  playlistCount: { color: '#666666', fontSize: 11 },
-  trackSeparator: { height: 1, backgroundColor: '#1E1E1E', marginVertical: 8 },
+  playlistTitle: { color: GLASS_COLORS.textPrimary, fontSize: 14, fontWeight: '700' },
+  playlistDescription: { color: GLASS_COLORS.textMuted, fontSize: 12, lineHeight: 16 },
+  playlistCount: { color: GLASS_COLORS.textMuted, fontSize: 11 },
+
+  trackSeparator: { height: 1, backgroundColor: GLASS_COLORS.borderGlass, marginVertical: 8 },
+
   saveBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: '#1E1E1E',
+    backgroundColor: GLASS_COLORS.glassDark,
     borderRadius: 10,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: '#1DB954',
+    borderColor: GLASS_COLORS.borderPurple,
     justifyContent: 'center',
   },
-  saveBtnText: { color: '#1DB954', fontSize: 14, fontWeight: '700' },
+  saveBtnText: { color: GLASS_COLORS.purpleSoft, fontSize: 14, fontWeight: '700' },
 });

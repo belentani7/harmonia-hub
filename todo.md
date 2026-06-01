@@ -1,84 +1,54 @@
 # BELENTANI — Project TODO
 
-## Setup & Branding
-- [x] Generate BELENTANI logo with AI
-- [x] Configure dark theme colors (Spotify-like)
-- [x] Update app.config.ts with BELENTANI branding
-- [x] Update theme.config.js with BELENTANI color palette
+## Design & Aesthetics (v3.0 Redesign)
+- [x] Glassmorphism: backdrop-filter blur(16px) + border 1px rgba(255,255,255,0.08)
+- [x] Color palette: Negro + Blanco + Púrpura suave (no colores saturados)
+- [x] Remove excessive buttons and info from Home
+- [x] Input AI at top of Home (minimalista, sin botones visibles)
+- [x] Platform buttons discrete under tab: Spotify, iTunes, Apple Music, Deezer, Tidal, Amazon
+- [x] Playlist count expandible (predeterminado visible)
+- [x] Negative relief UI, discrete interface
 
-## Navigation Structure
-- [x] Configure bottom tab bar (Home, Discover, Library, Profile)
-- [x] Add icon mappings for all tabs
-- [x] Create modal stack for Player screen
-- [x] Create CEO Dashboard screen (admin)
+## Security Implementation (Protocolo Completo)
+- [x] CAPA 1: HttpOnly + Secure + SameSite cookies (config)
+- [x] CAPA 1: Refresh token rotation (invalidate old on new)
+- [x] CAPA 1: Rate limiting por usuario (5 login/15min, 1000 API/min auth)
+- [x] CAPA 2: XSS prevention (textContent, DOMPurify, CSP header)
+- [x] CAPA 2: CSRF tokens en POST/PUT/DELETE
+- [x] CAPA 2: SQL injection prevention (parametrized queries)
+- [x] CAPA 2: Path traversal protection
+- [x] CAPA 3: No sensitive content behind blur
+- [x] CAPA 3: No GPU tier info in responses
+- [x] CAPA 3: CSS sanitization
+- [x] CAPA 4: Encryption at rest (AES-256-CBC for tokens)
+- [x] CAPA 4: Logs without sensitive data (no emails, no full IPs)
+- [x] CAPA 4: Session timeout on inactivity (30 min)
+- [x] CAPA 5: Security headers (X-Frame-Options, X-Content-Type-Options, etc.)
+- [x] CAPA 5: DDoS protection (rate limit at load balancer)
+- [x] CAPA 5: CORS restrictivo (solo dominios permitidos)
+- [x] CAPA 6: Anomaly detection (failed login alerts)
+- [x] CAPA 6: Structured logging (JSON format, redacted IPs)
+- [x] CAPA 6: Incident response plan
 
-## Onboarding
-- [x] 4-step onboarding carousel
-- [x] AsyncStorage flag to skip on subsequent launches
+## Discover Screen Redesign
+- [x] Advanced settings hidden (creativity: high/low toggle)
+- [x] Creativity high = experimental, low = conservative
+- [x] Strict mode vs. free mode toggle
+- [x] Generation based on AI idea, not limited to presets
+- [x] Less clicks, more fluidity
 
-## Home Screen
-- [x] Personalized greeting header
-- [x] CEO Daily Strategy card
-- [x] Quick mood chips (horizontal scroll)
-- [x] Recent playlists (horizontal scroll)
-- [x] Trending playlists section
+## Existing Features (Completed v1.0)
+- [x] 9 pantallas completas
+- [x] Consejo Ejecutivo Autónomo (5 agentes)
+- [x] Kill Switch
+- [x] Monetización Freemium
+- [x] Player completo
+- [x] Diseño dark tipo Spotify
 
-## Discover / AI Playlist Generator
-- [x] Mood selector grid (8 moods with colors/emojis)
-- [x] Context selector chips
-- [x] Genre multi-select pills
-- [x] "Generate Playlist" CTA button
-- [x] AI playlist generation via server LLM
-- [x] Generated playlist result view
-- [x] Save to library functionality
-
-## Library Screen
-- [x] My playlists grid
-- [x] Liked songs list
-- [x] Recently played list
-- [x] Artist marketplace section
-
-## Player Screen
-- [x] Full-screen player modal
-- [x] Album art display
-- [x] Progress bar with scrubbing
-- [x] Playback controls (shuffle, prev, play/pause, next, repeat)
-- [x] Like / add to playlist / share actions
-- [x] Mini player sticky bar
-- [x] AI insight card ("why this song")
-- [x] Lyrics tab (premium gate)
-
-## Profile Screen
-- [x] User avatar and stats
-- [x] Subscription badge (Free/Premium/Creator)
-- [x] Link to CEO Dashboard (admin)
-- [x] Settings link
-- [x] Sign in/out
-
-## CEO Dashboard
-- [x] 5 Agent cards (CEO, COO, CMO, CPO, CTO)
-- [x] Daily Strategy card with AI analysis
-- [x] Key metrics display (Users, Revenue, Churn, Engagement)
-- [x] Autonomous actions log
-- [x] "Trigger Council Analysis" button with LLM integration
-- [x] Kill Switch toggle with confirmation modal
-- [x] Risks tab
-
-## Data & State Management
-- [x] Playlist data model (mock data)
-- [x] Player state context (current track, queue, playback)
-- [x] CEO strategy mock data
-- [x] Liked tracks state
-
-## Monetization
-- [x] Subscription tiers UI (Free, Premium $4.99, Creator $14.99)
-- [x] Premium feature gates (lyrics)
-- [x] Upgrade prompt banner in Profile
-
-## Backend / AI
-- [x] Server router with playlist.generate endpoint (AI + fallback)
-- [x] Server router with council.analyze endpoint (AI + fallback)
-- [x] LLM integration with Gemini 2.5 Flash model
-- [x] JSON schema validation for LLM responses
-- [x] Structured fallback data when LLM fails
-- [x] TypeScript 0 errors
+## Existing Features (Completed v2.0)
+- [x] LLM integration (Gemini 2.5 Flash)
+- [x] Playlist generation with JSON schema
+- [x] Fallback mock data
+- [x] Discover screen with mood/context/genre selectors
+- [x] Error handling and loading states
+- [x] Validation tests (9/9 passing)
