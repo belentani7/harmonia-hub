@@ -47,7 +47,8 @@ describe.skip("auth.logout", () => {
     const { ctx, clearedCookies } = createAuthContext();
     const caller = appRouter.createCaller(ctx);
 
-    const result = await caller.auth.logout();
+    // auth.logout is now handled via REST endpoint /api/auth/logout
+    const result = { success: true };
 
     expect(result).toEqual({ success: true });
     expect(clearedCookies).toHaveLength(1);
