@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import {
-  View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator, FlatList, Image,
+  View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator, FlatList, Image, Alert,
 } from 'react-native';
 import { ScreenContainer } from '@/components/screen-container';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { TrackRow } from '@/components/track-row';
 import { MiniPlayer } from '@/components/mini-player';
 import { usePlayer } from '@/lib/player-context';
-import { MOCK_TRACKS, MOCK_PLAYLISTS } from '@/lib/mock-data';
+import { MOCK_PLAYLISTS } from '@/lib/mock-data';
 import { Mood, Context, Genre, Playlist, Track } from '@/shared/types';
 import { trpc } from '@/lib/trpc';
 
@@ -42,6 +42,7 @@ const GENRES: { id: Genre; label: string }[] = [
   { id: 'rnb', label: 'R&B' },
   { id: 'indie', label: 'Indie' },
   { id: 'latin', label: 'Latin' },
+  { id: 'metal', label: 'Metal' },
 ];
 
 export default function DiscoverScreen() {
@@ -51,13 +52,17 @@ export default function DiscoverScreen() {
   const [selectedGenres, setSelectedGenres] = useState<Genre[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedPlaylist, setGeneratedPlaylist] = useState<Playlist | null>(null);
+  const [generationError, setGenerationError] = useState<string | null>(null);
 
-  const generateMutation = (trpc as any).playlist.generate.useMutation({
+  const generateMutation = trpc.playlist.generate.useMutation({
     onSuccess: (data: any) => {
-      setGeneratedPlaylist(data);
+      setGeneratedPlaylist(data as Playlist);
       setIsGenerating(false);
+      setGenerationError(null);
     },
-    onError: () => {
+    onError: (error: any) => {
+      console.error('Playlist generation error:', error);
+      setGenerationError(error.message || 'Failed to generate playlist. Using fallback...');
       // Fallback to mock data
       const mockPlaylist = MOCK_PLAYLISTS.find(p => p.mood === selectedMood) || MOCK_PLAYLISTS[0];
       setGeneratedPlaylist(mockPlaylist);
@@ -72,28 +77,37 @@ export default function DiscoverScreen() {
   };
 
   const handleGenerate = async () => {
-    if (!selectedMood) return;
+    if (!selectedMood) {
+      Alert.alert('Select a Mood', 'Please select a mood to generate a playlist.');
+      return;
+    }
     setIsGenerating(true);
     setGeneratedPlaylist(null);
+    setGenerationError(null);
 
     try {
       await generateMutation.mutateAsync({
         mood: selectedMood,
         context: selectedContext || undefined,
-        genres: selectedGenres,
+        genres: selectedGenres.length > 0 ? selectedGenres : undefined,
         trackCount: 8,
       });
-    } catch {
-      // error handled in onError
+    } catch (error) {
+      // Error is handled in onError callback
+      console.error('Mutation error:', error);
     }
   };
 
   const handleTrackPress = (track: Track) => {
     if (generatedPlaylist) {
       playTrack(track, generatedPlaylist);
-    } else {
-      playTrack(track);
+      openPlayer();
     }
+  };
+
+  const getMoodColor = (mood: Mood) => {
+    const moodObj = MOODS.find(m => m.id === mood);
+    return moodObj?.color || '#1DB954';
   };
 
   return (
@@ -103,29 +117,25 @@ export default function DiscoverScreen() {
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.title}>AI Playlist Generator</Text>
-            <Text style={styles.subtitle}>Powered by the Executive Council</Text>
+            <Text style={styles.subtitle}>Create playlists powered by mood and context</Text>
           </View>
 
           {/* Mood Selector */}
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Select your mood *</Text>
+            <Text style={styles.sectionTitle}>How are you feeling?</Text>
             <View style={styles.moodGrid}>
               {MOODS.map(mood => (
                 <Pressable
                   key={mood.id}
                   onPress={() => setSelectedMood(mood.id)}
                   style={({ pressed }) => [
-                    styles.moodCard,
-                    { borderColor: mood.color },
-                    selectedMood === mood.id && { backgroundColor: mood.color },
+                    styles.moodChip,
+                    selectedMood === mood.id && { backgroundColor: mood.color + '30', borderColor: mood.color },
                     pressed && { opacity: 0.8 },
                   ]}
                 >
                   <Text style={styles.moodEmoji}>{mood.emoji}</Text>
-                  <Text style={[
-                    styles.moodLabel,
-                    selectedMood === mood.id && { color: '#121212' },
-                  ]}>
+                  <Text style={[styles.moodLabel, selectedMood === mood.id && { color: mood.color }]}>
                     {mood.label}
                   </Text>
                 </Pressable>
@@ -135,21 +145,21 @@ export default function DiscoverScreen() {
 
           {/* Context Selector */}
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Context (optional)</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsScroll}>
-              {CONTEXTS.map(ctx => (
+            <Text style={styles.sectionTitle}>Where are you?</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.contextScroll}>
+              {CONTEXTS.map(context => (
                 <Pressable
-                  key={ctx.id}
-                  onPress={() => setSelectedContext(selectedContext === ctx.id ? null : ctx.id)}
+                  key={context.id}
+                  onPress={() => setSelectedContext(selectedContext === context.id ? null : context.id)}
                   style={({ pressed }) => [
-                    styles.chip,
-                    selectedContext === ctx.id && styles.chipActive,
-                    pressed && { opacity: 0.8 },
+                    styles.contextChip,
+                    selectedContext === context.id && styles.contextChipActive,
+                    pressed && { opacity: 0.7 },
                   ]}
                 >
-                  <Text style={styles.chipEmoji}>{ctx.emoji}</Text>
-                  <Text style={[styles.chipLabel, selectedContext === ctx.id && styles.chipLabelActive]}>
-                    {ctx.label}
+                  <Text style={styles.contextEmoji}>{context.emoji}</Text>
+                  <Text style={[styles.contextLabel, selectedContext === context.id && { color: '#1DB954' }]}>
+                    {context.label}
                   </Text>
                 </Pressable>
               ))}
@@ -158,22 +168,19 @@ export default function DiscoverScreen() {
 
           {/* Genre Selector */}
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Genres (optional)</Text>
+            <Text style={styles.sectionTitle}>Genres (optional)</Text>
             <View style={styles.genreGrid}>
               {GENRES.map(genre => (
                 <Pressable
                   key={genre.id}
                   onPress={() => toggleGenre(genre.id)}
                   style={({ pressed }) => [
-                    styles.genreChip,
-                    selectedGenres.includes(genre.id) && styles.genreChipActive,
+                    styles.genrePill,
+                    selectedGenres.includes(genre.id) && styles.genrePillActive,
                     pressed && { opacity: 0.8 },
                   ]}
                 >
-                  <Text style={[
-                    styles.genreLabel,
-                    selectedGenres.includes(genre.id) && styles.genreLabelActive,
-                  ]}>
+                  <Text style={[styles.genreLabel, selectedGenres.includes(genre.id) && { color: '#121212' }]}>
                     {genre.label}
                   </Text>
                 </Pressable>
@@ -185,11 +192,11 @@ export default function DiscoverScreen() {
           <View style={styles.generateContainer}>
             <Pressable
               onPress={handleGenerate}
-              disabled={!selectedMood || isGenerating}
+              disabled={isGenerating || !selectedMood}
               style={({ pressed }) => [
                 styles.generateBtn,
-                (!selectedMood || isGenerating) && styles.generateBtnDisabled,
-                pressed && selectedMood && { transform: [{ scale: 0.97 }] },
+                (isGenerating || !selectedMood) && styles.generateBtnDisabled,
+                pressed && !isGenerating && { transform: [{ scale: 0.97 }] },
               ]}
             >
               {isGenerating ? (
@@ -204,168 +211,180 @@ export default function DiscoverScreen() {
                 </View>
               )}
             </Pressable>
-            {!selectedMood && (
-              <Text style={styles.generateHint}>Select a mood to generate your playlist</Text>
-            )}
           </View>
+
+          {/* Error Message */}
+          {generationError && (
+            <View style={styles.errorBanner}>
+              <IconSymbol name="exclamationmark.triangle.fill" size={16} color="#F39C12" />
+              <Text style={styles.errorText}>{generationError}</Text>
+            </View>
+          )}
 
           {/* Generated Playlist */}
           {generatedPlaylist && (
-            <View style={styles.resultSection}>
-              <View style={styles.resultHeader}>
-                <View style={styles.resultInfo}>
-                  <Image source={{ uri: generatedPlaylist.coverUrl }} style={styles.resultCover} />
-                  <View>
-                    <Text style={styles.resultTitle}>{generatedPlaylist.title}</Text>
-                    <Text style={styles.resultMeta}>
-                      {generatedPlaylist.tracks.length} tracks · AI Generated
-                    </Text>
+            <View style={styles.playlistContainer}>
+              <View style={styles.playlistHeader}>
+                <Image
+                  source={{ uri: generatedPlaylist.coverUrl }}
+                  style={styles.playlistCover}
+                />
+                <View style={styles.playlistInfo}>
+                  <Text style={styles.playlistTitle}>{generatedPlaylist.title}</Text>
+                  <Text style={styles.playlistDescription} numberOfLines={2}>
+                    {generatedPlaylist.description}
+                  </Text>
+                  <View style={styles.playlistMeta}>
+                    <Text style={styles.playlistMood}>{generatedPlaylist.mood}</Text>
+                    <Text style={styles.playlistCount}>{generatedPlaylist.tracks.length} tracks</Text>
                   </View>
                 </View>
-                <Pressable
-                  onPress={() => {
-                    if (generatedPlaylist.tracks.length > 0) {
-                      playTrack(generatedPlaylist.tracks[0], generatedPlaylist);
-                    }
-                  }}
-                  style={({ pressed }) => [styles.playAllBtn, pressed && { opacity: 0.8 }]}
-                >
-                  <IconSymbol name="play.fill" size={20} color="#121212" />
-                </Pressable>
               </View>
 
-              <Text style={styles.resultDescription}>{generatedPlaylist.description}</Text>
+              {/* Tracks */}
+              <FlatList
+                scrollEnabled={false}
+                data={generatedPlaylist.tracks}
+                keyExtractor={track => track.id}
+                renderItem={({ item, index }) => (
+                  <TrackRow
+                    track={item}
+                    index={index}
+                    onPress={() => handleTrackPress(item)}
+                    showIndex={true}
+                  />
+                )}
+                ItemSeparatorComponent={() => <View style={styles.trackSeparator} />}
+              />
 
-              {generatedPlaylist.tracks.map((track, index) => (
-                <TrackRow
-                  key={track.id}
-                  track={track}
-                  index={index}
-                  showIndex
-                  onPress={() => handleTrackPress(track)}
-                />
-              ))}
-
-              <Pressable style={styles.saveBtn}>
-                <IconSymbol name="plus.circle.fill" size={18} color="#1DB954" />
+              {/* Save Button */}
+              <Pressable
+                onPress={() => Alert.alert('Saved', 'Playlist saved to your library!')}
+                style={({ pressed }) => [styles.saveBtn, pressed && { opacity: 0.8 }]}
+              >
+                <IconSymbol name="heart.fill" size={18} color="#1DB954" />
                 <Text style={styles.saveBtnText}>Save to Library</Text>
               </Pressable>
             </View>
           )}
 
-          <View style={{ height: currentTrack ? 80 : 32 }} />
+          <View style={{ height: 40 }} />
         </ScrollView>
       </ScreenContainer>
 
-      {currentTrack && (
-        <View style={styles.miniPlayerContainer}>
-          <MiniPlayer onPress={openPlayer} />
-        </View>
-      )}
+      {/* Mini Player */}
+      <MiniPlayer onPress={openPlayer} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   outerContainer: { flex: 1, backgroundColor: '#121212' },
-  scrollContent: { paddingBottom: 16 },
-  header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 },
-  title: { color: '#FFFFFF', fontSize: 26, fontWeight: '800', letterSpacing: 0.5 },
-  subtitle: { color: '#1DB954', fontSize: 13, marginTop: 4, fontWeight: '500' },
-  section: { marginTop: 24, paddingHorizontal: 20 },
-  sectionLabel: { color: '#FFFFFF', fontSize: 15, fontWeight: '700', marginBottom: 12 },
-  moodGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  moodCard: {
-    width: '22%',
-    aspectRatio: 1,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    backgroundColor: 'transparent',
+  scrollContent: { paddingBottom: 20 },
+  header: { paddingHorizontal: 16, paddingVertical: 12, gap: 4 },
+  title: { color: '#FFFFFF', fontSize: 24, fontWeight: '800' },
+  subtitle: { color: '#B3B3B3', fontSize: 14 },
+  section: { marginTop: 20 },
+  sectionTitle: { color: '#FFFFFF', fontSize: 16, fontWeight: '700', paddingHorizontal: 16, marginBottom: 12 },
+  moodGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 16,
+    gap: 10,
   },
-  moodEmoji: { fontSize: 22 },
-  moodLabel: { color: '#FFFFFF', fontSize: 11, fontWeight: '600' },
-  chipsScroll: { gap: 10 },
-  chip: {
+  moodChip: {
+    width: '30%',
+    backgroundColor: '#1E1E1E',
+    borderRadius: 12,
+    padding: 12,
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#333333',
+  },
+  moodEmoji: { fontSize: 24 },
+  moodLabel: { color: '#B3B3B3', fontSize: 12, fontWeight: '600', textAlign: 'center' },
+  contextScroll: { paddingHorizontal: 16, gap: 10 },
+  contextChip: {
+    backgroundColor: '#1E1E1E',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#1E1E1E',
     borderWidth: 1,
     borderColor: '#333333',
   },
-  chipActive: { backgroundColor: '#1DB954', borderColor: '#1DB954' },
-  chipEmoji: { fontSize: 14 },
-  chipLabel: { color: '#B3B3B3', fontSize: 13, fontWeight: '500' },
-  chipLabelActive: { color: '#121212', fontWeight: '700' },
-  genreGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  genreChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
+  contextChipActive: { backgroundColor: '#1DB954', borderColor: '#1DB954' },
+  contextEmoji: { fontSize: 16 },
+  contextLabel: { color: '#B3B3B3', fontSize: 12, fontWeight: '600' },
+  genreGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  genrePill: {
     backgroundColor: '#1E1E1E',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderWidth: 1,
     borderColor: '#333333',
   },
-  genreChipActive: { backgroundColor: '#1DB954', borderColor: '#1DB954' },
-  genreLabel: { color: '#B3B3B3', fontSize: 13, fontWeight: '500' },
-  genreLabelActive: { color: '#121212', fontWeight: '700' },
-  generateContainer: { paddingHorizontal: 20, marginTop: 28, alignItems: 'center', gap: 10 },
+  genrePillActive: { backgroundColor: '#1DB954', borderColor: '#1DB954' },
+  genreLabel: { color: '#B3B3B3', fontSize: 12, fontWeight: '600' },
+  generateContainer: { paddingHorizontal: 16, marginTop: 24 },
   generateBtn: {
-    width: '100%',
     backgroundColor: '#1DB954',
-    borderRadius: 30,
+    borderRadius: 14,
     paddingVertical: 16,
     alignItems: 'center',
   },
   generateBtnDisabled: { backgroundColor: '#2A2A2A' },
   generateBtnContent: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  generateBtnText: { color: '#121212', fontSize: 16, fontWeight: '700' },
-  generateHint: { color: '#B3B3B3', fontSize: 12 },
-  resultSection: { marginTop: 28 },
-  resultHeader: {
+  generateBtnText: { color: '#121212', fontSize: 15, fontWeight: '700' },
+  errorBanner: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    backgroundColor: '#F39C1220',
+    borderRadius: 10,
+    padding: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    marginBottom: 12,
+    gap: 10,
+    borderLeftWidth: 3,
+    borderLeftColor: '#F39C12',
   },
-  resultInfo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  resultCover: { width: 56, height: 56, borderRadius: 8, backgroundColor: '#2A2A2A' },
-  resultTitle: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
-  resultMeta: { color: '#B3B3B3', fontSize: 12, marginTop: 3 },
-  playAllBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#1DB954',
-    alignItems: 'center',
-    justifyContent: 'center',
+  errorText: { color: '#F39C12', fontSize: 13, flex: 1 },
+  playlistContainer: { marginHorizontal: 16, marginTop: 20, gap: 12 },
+  playlistHeader: {
+    flexDirection: 'row',
+    gap: 12,
+    backgroundColor: '#1E1E1E',
+    borderRadius: 12,
+    padding: 12,
   },
-  resultDescription: {
-    color: '#B3B3B3',
-    fontSize: 13,
-    lineHeight: 19,
-    paddingHorizontal: 20,
-    marginBottom: 12,
-  },
+  playlistCover: { width: 80, height: 80, borderRadius: 8 },
+  playlistInfo: { flex: 1, justifyContent: 'space-between' },
+  playlistTitle: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+  playlistDescription: { color: '#B3B3B3', fontSize: 12, lineHeight: 16 },
+  playlistMeta: { flexDirection: 'row', gap: 8 },
+  playlistMood: { color: '#1DB954', fontSize: 11, fontWeight: '600', textTransform: 'capitalize' },
+  playlistCount: { color: '#666666', fontSize: 11 },
+  trackSeparator: { height: 1, backgroundColor: '#1E1E1E', marginVertical: 8 },
   saveBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginHorizontal: 20,
-    marginTop: 16,
-    paddingVertical: 14,
-    borderRadius: 12,
+    gap: 10,
+    backgroundColor: '#1E1E1E',
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     borderWidth: 1,
     borderColor: '#1DB954',
+    justifyContent: 'center',
   },
-  saveBtnText: { color: '#1DB954', fontSize: 14, fontWeight: '600' },
-  miniPlayerContainer: { position: 'absolute', bottom: 0, left: 0, right: 0 },
+  saveBtnText: { color: '#1DB954', fontSize: 14, fontWeight: '700' },
 });

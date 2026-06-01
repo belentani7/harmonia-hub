@@ -78,4 +78,7 @@
 ## Backend / AI
 - [x] Server router with playlist.generate endpoint (AI + fallback)
 - [x] Server router with council.analyze endpoint (AI + fallback)
+- [x] LLM integration with Gemini 2.5 Flash model
+- [x] JSON schema validation for LLM responses
+- [x] Structured fallback data when LLM fails
 - [x] TypeScript 0 errors
