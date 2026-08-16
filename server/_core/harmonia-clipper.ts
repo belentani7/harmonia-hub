@@ -1,9 +1,11 @@
 /**
  * HARMONÍA Durable Engine & Three-Phase Workflow for Web-to-Markdown Clipper
- * Fases: PREPARAR -> CONFIRMAR -> COMMIT
+ * Integrado con Protocolo de Validación Universal (PVC-U) y Validation Ledger inmutable.
  */
 
 import crypto from 'crypto';
+import { PVCUValidator, ValidationEnvelope } from './pvc-u-profile';
+import { PVCULedger } from './pvc-u-ledger';
 
 export type NodePhase = 'prepare' | 'confirm' | 'commit';
 export type NodeStatus = 'pending' | 'preparing' | 'awaiting_confirmation' | 'executing' | 'succeeded' | 'failed' | 'cancelled';
@@ -23,15 +25,27 @@ export interface ClipperWorkflowState {
   createdAt: string;
   updatedAt: string;
   auditTrail: { event: string; timestamp: string }[];
+  validationEnvelope?: ValidationEnvelope;
 }
 
 export class HarmoniaClipperWorkflow {
   private state: ClipperWorkflowState;
+  private validator = new PVCUValidator();
+  private static ledger = new PVCULedger();
 
   constructor(url: string, title: string, htmlContent: string) {
     const workflowId = `wf_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    
+    // Validar mediante PVC-U (Esferas y Subesferas 4-A / 2-A)
+    const envelope = this.validator.validateExtraction(url, title, htmlContent);
+    HarmoniaClipperWorkflow.ledger.append(workflowId, envelope);
+
+    if (!envelope.passed) {
+      throw new Error(`PVC-U Validation Failed: ${envelope.violations.map(v => v.code + ': ' + v.message).join(', ')}`);
+    }
+
     const markdown = this.htmlToMarkdown(htmlContent, title, url);
-    const inputHash = crypto.createHash('sha256').update(markdown).digest('hex');
+    const inputHash = envelope.inputHash;
     const idempotencyKey = `${workflowId}:${inputHash}:commit`;
 
     this.state = {
@@ -48,12 +62,12 @@ export class HarmoniaClipperWorkflow {
       approved: false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      auditTrail: [{ event: 'workflow_created', timestamp: new Date().toISOString() }],
+      auditTrail: [{ event: 'workflow_created_and_validated_pvcu', timestamp: new Date().toISOString() }],
+      validationEnvelope: envelope,
     };
   }
 
   private htmlToMarkdown(html: string, title: string, url: string): string {
-    // Clean conversion heuristic for MVP
     const cleanText = html
       .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
       .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
@@ -64,9 +78,6 @@ export class HarmoniaClipperWorkflow {
     return `# ${title}\n\n*Source:* [${url}](${url})\n*Captured:* ${new Date().toISOString()}\n\n## Content\n\n${cleanText}`;
   }
 
-  /**
-   * FASE A: PREPARAR
-   */
   public prepare(): ClipperWorkflowState {
     this.state.phase = 'prepare';
     this.state.status = 'awaiting_confirmation';
@@ -75,9 +86,6 @@ export class HarmoniaClipperWorkflow {
     return { ...this.state };
   }
 
-  /**
-   * FASE B: CONFIRMAR
-   */
   public confirm(approved: boolean): ClipperWorkflowState {
     if (this.state.phase !== 'prepare' && this.state.status !== 'awaiting_confirmation') {
       throw new Error('Workflow not in awaiting_confirmation state');
@@ -98,9 +106,6 @@ export class HarmoniaClipperWorkflow {
     return { ...this.state };
   }
 
-  /**
-   * FASE C: COMMIT / EJECUTAR (Idempotente)
-   */
   public commit(): { success: boolean; state: ClipperWorkflowState; fileContent: string } {
     if (this.state.status !== 'executing' || !this.state.approved) {
       throw new Error('Cannot commit unapproved or non-executing workflow');
@@ -131,5 +136,9 @@ export class HarmoniaClipperWorkflow {
 
   public getState(): ClipperWorkflowState {
     return { ...this.state };
+  }
+
+  public static getLedger() {
+    return HarmoniaClipperWorkflow.ledger;
   }
 }
