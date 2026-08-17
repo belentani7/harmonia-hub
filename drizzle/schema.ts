@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, serial, decimal } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -22,7 +22,32 @@ export const users = mysqlTable("users", {
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
 });
 
+export const crmContacts = mysqlTable("crm_contacts", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("user_id").notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  email: varchar("email", { length: 255 }).notNull(),
+  status: varchar("status", { length: 50 }).default("lead").notNull(),
+  value: decimal("value", { precision: 10, scale: 2 }).default("0.00").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull().onUpdateNow(),
+});
+
+export const automationJobs = mysqlTable("automation_jobs", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("user_id").notNull(),
+  jobName: varchar("job_name", { length: 255 }).notNull(),
+  schedule: varchar("schedule", { length: 100 }).notNull(),
+  status: varchar("status", { length: 50 }).default("active").notNull(),
+  lastRunAt: timestamp("last_run_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
+export type CrmContact = typeof crmContacts.$inferSelect;
+export type InsertCrmContact = typeof crmContacts.$inferInsert;
+export type AutomationJob = typeof automationJobs.$inferSelect;
+export type InsertAutomationJob = typeof automationJobs.$inferInsert;
 
 // TODO: Add your tables here
