@@ -1,0 +1,33 @@
+name: HARMONÍA CI
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22
+
+    - name: Install pnpm
+      uses: pnpm/action-setup@v2
+      with:
+        version: 9
+
+    - name: Install dependencies
+      run: pnpm install
+
+    - name: Type check TypeScript
+      run: npx tsc --noEmit
+
+    - name: Run Vitest Suite
+      run: pnpm test tests/harmonia.clipper.test.ts tests/harmonia.pvcu.test.ts tests/harmonia.durable.test.ts tests/fullstack.integration.test.ts tests/playlist.validation.test.ts
