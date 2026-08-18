@@ -8,3 +8,15 @@
 - [x] Fase 5: Ejecutar pruebas de recuperación, seguridad, compatibilidad e idempotencia
 - [x] Fase 6: Preparar instalación, oferta comercial y validación con usuarios
 - [x] Fase 7: Entregar resultados, límites y siguiente acción confirmable
+
+# Pendientes de entrega productiva
+
+- [ ] Compilar y validar la APK Android instalable
+- [x] Verificar y empaquetar el backend API como servicio independiente
+- [x] Configurar una base de datos de producción o dejar un procedimiento ejecutable con variables documentadas
+- [x] Verificar el CRM web como servicio independiente
+- [ ] Ejecutar y validar el worker de automatizaciones con persistencia durable
+- [ ] Validar PVC-U y Validation Ledger en un flujo end-to-end
+- [ ] Ejecutar pruebas finales de integración y documentar límites reales de producción
+
+> Nota: estos elementos se mantienen separados de la auditoría anterior para conservar el historial y no presentar preparación como despliegue productivo.

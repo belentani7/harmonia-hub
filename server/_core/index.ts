@@ -2,6 +2,9 @@ import "dotenv/config";
 import express from "express";
 import { createServer } from "http";
 import net from "net";
+import path from "path";
+import { handleAutomationHeartbeat } from "../automation/http";
+import { registerCrmRoutes } from "../automation/crm-http";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
 import { registerStorageProxy } from "./storageProxy";
@@ -58,8 +61,18 @@ async function startServer() {
   registerStorageProxy(app);
   registerOAuthRoutes(app);
 
+  const crmDirectory = path.join(process.cwd(), "crm");
+  app.use("/crm", express.static(crmDirectory, { index: "index.html" }));
+  app.post("/api/scheduled/automation", handleAutomationHeartbeat);
+  registerCrmRoutes(app);
+
   app.get("/api/health", (_req, res) => {
-    res.json({ ok: true, timestamp: Date.now() });
+    const databaseConfigured = Boolean(process.env.DATABASE_URL);
+    res.json({ ok: true, databaseConfigured, timestamp: Date.now() });
+  });
+
+  app.get("/api/health/automation", async (_req, res) => {
+    res.json({ ok: true, callback: "/api/scheduled/automation", timestamp: Date.now() });
   });
 
   app.use(
