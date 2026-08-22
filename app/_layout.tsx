@@ -13,7 +13,7 @@ export default function RootLayout() {
   const trpcClient = useMemo(() => createTRPCClient(), []);
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#08070B" }}>
       <trpc.Provider client={trpcClient} queryClient={queryClient}>
         <QueryClientProvider client={queryClient}>
           <ThemeProvider>
@@ -23,7 +23,7 @@ export default function RootLayout() {
               <Stack
                 screenOptions={{
                   headerShown: false,
-                  contentStyle: { backgroundColor: '#121212' },
+                  contentStyle: { backgroundColor: '#08070B' },
                   animation: 'slide_from_right',
                 }}
               >
