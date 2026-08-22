@@ -32,5 +32,6 @@
 - [x] Añadir docker-compose, configuración de entorno, healthchecks y documentación de operación local
 - [x] Ampliar CI con compilación del backend, validación Expo y pruebas de integración
 - [x] Ejecutar auditoría final de calidad, seguridad, accesibilidad y no-regresión
+- [x] Corregir el tema web de preview para que respete el modo oscuro púrpura definido por BELENTANI
 - [ ] Guardar el paquete de entrega y la documentación en Google Drive
 - [ ] Sincronizar la revisión verificada con GitHub belentani7/harmonia-hub
