@@ -1,9 +1,8 @@
 import React, { useState, useRef } from 'react';
 import {
-  View, Text, Pressable, StyleSheet, Dimensions, ScrollView, Image,
+  View, Text, Pressable, StyleSheet, Dimensions, ScrollView,
 } from 'react-native';
 import { router } from 'expo-router';
-import { ScreenContainer } from '@/components/screen-container';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -13,34 +12,30 @@ const SLIDES = [
   {
     id: 1,
     icon: 'sparkles' as const,
-    color: '#1DB954',
-    title: 'Your AI Music OS',
-    subtitle: 'BELENTANI generates perfect playlists based on your mood, context, and taste — powered by an autonomous executive council of 5 AI agents.',
-    gradient: ['#0D2B1A', '#121212'],
+    color: '#A78BFA',
+    title: 'Tu intención, una selección',
+    subtitle: 'Describe un momento, elige un mood y genera una playlist explicable con IA.',
   },
   {
     id: 2,
     icon: 'brain' as const,
-    color: '#4A90E2',
-    title: 'Executive Council',
-    subtitle: 'CEO, COO, CMO, CPO, and CTO AI agents work 24/7 to optimize your music experience. They analyze trends, curate playlists, and evolve the platform autonomously.',
-    gradient: ['#0D1B2B', '#121212'],
+    color: '#A78BFA',
+    title: 'Control humano por diseño',
+    subtitle: 'HARMONÍA registra análisis y automatizaciones con permisos explícitos, kill switch y auditoría PVC-U.',
   },
   {
     id: 3,
     icon: 'waveform' as const,
-    color: '#E91E63',
-    title: 'Mood-Intelligent Music',
-    subtitle: 'Select your mood and context. Our AI analyzes 47 acoustic parameters to find the perfect tracks for your exact emotional state.',
-    gradient: ['#2B0D1A', '#121212'],
+    color: '#A78BFA',
+    title: 'Criterio que puedes revisar',
+    subtitle: 'Cada pista puede incluir el motivo de su selección. Si la IA falla, verás un estado recuperable, no contenido inventado.',
   },
   {
     id: 4,
-    icon: 'crown.fill' as const,
-    color: '#FFD700',
-    title: 'Premium or Free',
-    subtitle: 'Start free with AI-generated playlists. Upgrade to Premium for lyrics, offline downloads, and exclusive artist content. From $4.99/month.',
-    gradient: ['#2B2000', '#121212'],
+    icon: 'heart' as const,
+    color: '#A78BFA',
+    title: 'Tu biblioteca, sin ruido',
+    subtitle: 'Guarda playlists, favoritos e historial en este dispositivo. El audio y los pagos solo aparecerán cuando estén conectados de verdad.',
   },
 ];
 
@@ -67,8 +62,6 @@ export default function OnboardingScreen() {
     const page = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
     setCurrentSlide(page);
   };
-
-  const slide = SLIDES[currentSlide];
 
   return (
     <View style={styles.container}>
@@ -112,7 +105,7 @@ export default function OnboardingScreen() {
               }}
               style={[
                 styles.dot,
-                i === currentSlide && { width: 24, backgroundColor: '#1DB954' },
+                  i === currentSlide && { width: 24, backgroundColor: '#A78BFA' },
               ]}
             />
           ))}
@@ -124,7 +117,7 @@ export default function OnboardingScreen() {
           style={({ pressed }) => [styles.nextBtn, pressed && { transform: [{ scale: 0.97 }] }]}
         >
           <Text style={styles.nextBtnText}>
-            {currentSlide === SLIDES.length - 1 ? 'Get Started' : 'Continue'}
+            {currentSlide === SLIDES.length - 1 ? 'Empezar' : 'Continuar'}
           </Text>
           <IconSymbol
             name={currentSlide === SLIDES.length - 1 ? 'sparkles' : 'chevron.right'}
@@ -139,7 +132,7 @@ export default function OnboardingScreen() {
             onPress={handleGetStarted}
             style={({ pressed }) => [styles.skipBtn, pressed && { opacity: 0.6 }]}
           >
-            <Text style={styles.skipText}>Skip</Text>
+            <Text style={styles.skipText}>Saltar</Text>
           </Pressable>
         )}
       </View>
@@ -150,7 +143,7 @@ export default function OnboardingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#121212',
+    backgroundColor: '#0A0A0E',
   },
   slidesContainer: {
     flex: 1,
@@ -172,7 +165,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   brandName: {
-    color: '#1DB954',
+    color: '#A78BFA',
     fontSize: 14,
     fontWeight: '800',
     letterSpacing: 4,
@@ -213,7 +206,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: '#1DB954',
+    backgroundColor: '#A78BFA',
     borderRadius: 30,
     paddingVertical: 16,
     paddingHorizontal: 40,

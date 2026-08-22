@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, Pressable, Image, StyleSheet } from 'react-native';
 import { Playlist } from '@/shared/types';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { formatNumber } from '@/lib/mock-data';
+import { formatNumber } from '@/lib/formatters';
 
 const MOOD_COLORS: Record<string, string> = {
   focus: '#4A90E2',

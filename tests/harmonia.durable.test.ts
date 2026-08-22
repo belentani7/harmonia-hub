@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { HarmoniaClipperWorkflow } from '../server/_core/harmonia-clipper';
 import { HarmoniaDurableStore } from '../server/_core/harmonia-durable-store';
-import { PVCUValidator } from '../server/_core/pvc-u-profile';
 
 describe('HARMONÍA Durable Store & Idempotency (10/10 Standard)', () => {
   it('should store and verify record integrity durably', () => {

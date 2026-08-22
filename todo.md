@@ -20,3 +20,17 @@
 - [ ] Ejecutar pruebas finales de integración y documentar límites reales de producción
 
 > Nota: estos elementos se mantienen separados de la auditoría anterior para conservar el historial y no presentar preparación como despliegue productivo.
+
+# Elevación integral — manifiesto de producto
+
+- [x] Auditar pantallas, fuentes de datos y estados simulados contra el manifiesto adjunto
+- [x] Definir y documentar sistema de producto, UX, accesibilidad y criterios de verdad operativa
+- [x] Sustituir o etiquetar explícitamente las experiencias móviles que dependan de datos simulados
+- [x] Sustituir biblioteca, favoritos, historial y reproducción simulada por datos de usuario persistidos y estados honestos de audio
+- [x] Convertir el Consejo Ejecutivo y el kill switch en flujos persistentes, autorizados y auditables
+- [x] Reforzar aislamiento de API, CRM, base de datos, ledger PVC-U y worker idempotente
+- [x] Añadir docker-compose, configuración de entorno, healthchecks y documentación de operación local
+- [x] Ampliar CI con compilación del backend, validación Expo y pruebas de integración
+- [x] Ejecutar auditoría final de calidad, seguridad, accesibilidad y no-regresión
+- [ ] Guardar el paquete de entrega y la documentación en Google Drive
+- [ ] Sincronizar la revisión verificada con GitHub belentani7/harmonia-hub

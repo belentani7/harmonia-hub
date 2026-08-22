@@ -4,6 +4,7 @@
  * con control de concurrencia y recuperación ante fallos.
  */
 
+import crypto from 'crypto';
 import { ClipperWorkflowState } from './harmonia-clipper';
 import { ValidationEnvelope } from './pvc-u-profile';
 
@@ -17,10 +18,9 @@ export interface DurableRecord {
 
 export class HarmoniaDurableStore {
   private store = new Map<string, DurableRecord>();
-  private crypto = require('crypto');
 
   public save(state: ClipperWorkflowState, envelope: ValidationEnvelope): DurableRecord {
-    const checksum = this.crypto
+    const checksum = crypto
       .createHash('sha256')
       .update(JSON.stringify(state) + JSON.stringify(envelope))
       .digest('hex');
@@ -45,7 +45,7 @@ export class HarmoniaDurableStore {
     const rec = this.store.get(idempotencyKey);
     if (!rec) return false;
 
-    const expectedChecksum = this.crypto
+    const expectedChecksum = crypto
       .createHash('sha256')
       .update(JSON.stringify(rec.workflowState) + JSON.stringify(rec.envelope))
       .digest('hex');

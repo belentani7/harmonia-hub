@@ -4,6 +4,7 @@
  */
 
 import crypto from 'crypto';
+import path from 'path';
 import { ENV } from './env';
 
 // ============================================================================
@@ -19,10 +20,9 @@ export async function rotateRefreshToken(oldToken: string): Promise<string> {
   // await redis.del(`refresh_token:${oldToken}`);
   
   const newToken = crypto.randomBytes(32).toString('hex');
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
   
   // In production: store with expiry
-  // await db.refreshTokens.create({ token: newToken, expiresAt, userId });
+  // await db.refreshTokens.create({ token: newToken, expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), userId });
   
   return newToken;
 }
@@ -38,6 +38,9 @@ export const RATE_LIMITS = {
   api_anonymous: { max: 30, windowMs: 60 * 1000 }, // 30 per min
 };
 
+type RateLimitBucket = { count: number; resetAt: number };
+const rateLimitBuckets = new Map<string, RateLimitBucket>();
+
 /**
  * Check if user should be rate limited
  */
@@ -46,16 +49,16 @@ export async function checkRateLimit(
   limitType: keyof typeof RATE_LIMITS,
 ): Promise<{ allowed: boolean; remaining: number; resetAt: Date }> {
   const limit = RATE_LIMITS[limitType];
-  
-  // In production: use Redis with INCR + EXPIRE
-  // const key = `ratelimit:${userId}:${limitType}`;
-  // const count = await redis.incr(key);
-  // if (count === 1) await redis.expire(key, Math.ceil(limit.windowMs / 1000));
-  
-  // Placeholder
-  const count = 1;
+  const key = `${limitType}:${userId}`;
+  const now = Date.now();
+  const existing = rateLimitBuckets.get(key);
+  const bucket = !existing || existing.resetAt <= now
+    ? { count: 1, resetAt: now + limit.windowMs }
+    : { count: existing.count + 1, resetAt: existing.resetAt };
+  rateLimitBuckets.set(key, bucket);
+  const count = bucket.count;
   const allowed = count <= limit.max;
-  const resetAt = new Date(Date.now() + limit.windowMs);
+  const resetAt = new Date(bucket.resetAt);
   
   return {
     allowed,
@@ -86,15 +89,17 @@ export function sanitizeInput(input: string): string {
  * Unique per user + session
  */
 export function generateCSRFToken(userId: string, sessionId: string): string {
-  const data = `${userId}:${sessionId}:${Date.now()}`;
-  const secret = ENV.cookieSecret || 'default-secret';
+  const data = `${userId}:${sessionId}`;
+  const secret = ENV.cookieSecret;
+  if (!secret) throw new Error('JWT_SECRET is required to generate CSRF tokens');
   return crypto.createHmac('sha256', secret).update(data).digest('hex');
 }
 
 export function verifyCSRFToken(token: string, userId: string, sessionId: string): boolean {
   const expected = generateCSRFToken(userId, sessionId);
-  // Use timing-safe comparison
-  return crypto.timingSafeEqual(Buffer.from(token), Buffer.from(expected));
+  const tokenBuffer = Buffer.from(token, 'utf8');
+  const expectedBuffer = Buffer.from(expected, 'utf8');
+  return tokenBuffer.length === expectedBuffer.length && crypto.timingSafeEqual(tokenBuffer, expectedBuffer);
 }
 
 /**
@@ -116,11 +121,10 @@ export function validateDatabaseInput(input: any): any {
  * Ensure requested path doesn't escape base directory
  */
 export function validateFilePath(basePath: string, requestedPath: string): boolean {
-  const path = require('path');
   const resolvedPath = path.resolve(basePath, requestedPath);
   const resolvedBase = path.resolve(basePath);
-  
-  return resolvedPath.startsWith(resolvedBase);
+  const relative = path.relative(resolvedBase, resolvedPath);
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
 }
 
 // ============================================================================
@@ -170,20 +174,20 @@ export function sanitizeCSS(css: string): string {
 export function encryptSensitiveData(data: string, key: string): string {
   const iv = crypto.randomBytes(16);
   const keyHash = crypto.createHash('sha256').update(key).digest();
-  const cipher = crypto.createCipheriv('aes-256-cbc', keyHash, iv);
-  let encrypted = cipher.update(data, 'utf8', 'hex');
-  encrypted += cipher.final('hex');
-  return iv.toString('hex') + ':' + encrypted;
+  const cipher = crypto.createCipheriv('aes-256-gcm', keyHash, iv);
+  const encrypted = Buffer.concat([cipher.update(data, 'utf8'), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+  return `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted.toString('hex')}`;
 }
 
 export function decryptSensitiveData(encrypted: string, key: string): string {
-  const [ivHex, encryptedData] = encrypted.split(':');
+  const [ivHex, authTagHex, encryptedData] = encrypted.split(':');
+  if (!ivHex || !authTagHex || !encryptedData) throw new Error('Invalid encrypted payload');
   const iv = Buffer.from(ivHex, 'hex');
   const keyHash = crypto.createHash('sha256').update(key).digest();
-  const decipher = crypto.createDecipheriv('aes-256-cbc', keyHash, iv);
-  let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
-  decrypted += decipher.final('utf8');
-  return decrypted;
+  const decipher = crypto.createDecipheriv('aes-256-gcm', keyHash, iv);
+  decipher.setAuthTag(Buffer.from(authTagHex, 'hex'));
+  return Buffer.concat([decipher.update(Buffer.from(encryptedData, 'hex')), decipher.final()]).toString('utf8');
 }
 
 /**
@@ -298,9 +302,8 @@ export async function respondToSecurityIncident(
 ): Promise<void> {
   console.error(`[INCIDENT] ${incidentType} from user ${userId}`, details);
   
-  // Log structured
-  const logEntry = createSecurityLog(incidentType, { userId, ...details });
-  // await db.securityLogs.create({ entry: logEntry });
+  // Log structured and redacted; replace with durable security-log storage when provisioned.
+  console.error(createSecurityLog(incidentType, { userId, ...details }));
   
   // Automatic containment based on incident type
   switch (incidentType) {

@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, Pressable, Image, StyleSheet } from 'react-native';
 import { Track } from '@/shared/types';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { formatDuration } from '@/lib/mock-data';
+import { formatDuration } from '@/lib/formatters';
 import { usePlayer } from '@/lib/player-context';
 
 interface TrackRowProps {
@@ -44,7 +44,7 @@ export function TrackRow({ track, index, onPress, showIndex = false }: TrackRowP
       </View>
 
       <Pressable
-        onPress={() => toggleLike(track.id)}
+        onPress={() => toggleLike(track)}
         style={({ pressed }) => [styles.likeBtn, pressed && { opacity: 0.6 }]}
         hitSlop={8}
       >

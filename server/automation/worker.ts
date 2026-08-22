@@ -1,8 +1,10 @@
 import crypto from "crypto";
-import { and, desc, eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import {
   automationJobs,
   automationRuns,
+  councilAuditLogs,
+  councilControls,
   pvcuLedgerRecords,
 } from "../../drizzle/schema";
 import { PVCUValidator } from "../_core/pvc-u-profile";
@@ -76,6 +78,39 @@ export async function executeAutomationJob(
   const runId = Number(insertedRun[0].insertId);
 
   try {
+    const control = (
+      await db
+        .select()
+        .from(councilControls)
+        .where(eq(councilControls.userId, job.userId))
+        .limit(1)
+    )[0];
+
+    if (control?.killSwitchActive === 1) {
+      const details = { jobId: job.id, runId, idempotencyKey: input.idempotencyKey, reason: "owner_kill_switch" };
+      await db.insert(councilAuditLogs).values({
+        userId: job.userId,
+        actorUserId: control.updatedByUserId,
+        eventType: "automation.blocked_by_kill_switch",
+        details,
+      });
+      await db.update(automationRuns).set({
+        status: "failed",
+        phase: "prepare",
+        error: "HARMONIA_KILL_SWITCH_ACTIVE",
+        result: details,
+        finishedAt: new Date(),
+      }).where(eq(automationRuns.id, runId));
+      return {
+        jobId: job.id,
+        runId,
+        idempotencyKey: input.idempotencyKey,
+        phase: "prepare",
+        status: "failed",
+        message: "Automation blocked by the persistent owner kill switch.",
+      };
+    }
+
     const validator = new PVCUValidator();
     const envelope = validator.validateExtraction(
       `https://harmonia.local/automation/${job.id}`,
@@ -151,6 +186,13 @@ export async function executeAutomationJob(
         result: { validation: envelope, sequenceId, recordHash, committed: true },
       })
       .where(eq(automationRuns.id, runId));
+
+    await db.insert(councilAuditLogs).values({
+      userId: job.userId,
+      actorUserId: job.userId,
+      eventType: "automation.committed",
+      details: { jobId: job.id, runId, idempotencyKey: input.idempotencyKey, sequenceId, recordHash },
+    });
 
     return {
       jobId: job.id,

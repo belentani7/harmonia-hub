@@ -7,6 +7,7 @@ import { GlassCard } from '@/components/glass-card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { TrackRow } from '@/components/track-row';
 import { MiniPlayer } from '@/components/mini-player';
+import { useLibrary } from '@/lib/library-context';
 import { usePlayer } from '@/lib/player-context';
 import { GLASS_COLORS } from '@/lib/glass-morphism';
 import { Mood, Playlist, Track } from '@/shared/types';
@@ -24,9 +25,9 @@ const MOODS: { id: Mood; label: string; emoji: string }[] = [
 ];
 
 export default function DiscoverScreen() {
-  const { currentTrack, playTrack, openPlayer } = usePlayer();
+  const { playTrack, openPlayer } = usePlayer();
+  const { savePlaylist } = useLibrary();
   const [selectedMood, setSelectedMood] = useState<Mood | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [generatedPlaylist, setGeneratedPlaylist] = useState<Playlist | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [creativity, setCreativity] = useState<'high' | 'low'>('high');
@@ -36,12 +37,10 @@ export default function DiscoverScreen() {
   const generateMutation = trpc.playlist.generate.useMutation({
     onSuccess: (data: any) => {
       setGeneratedPlaylist(data as Playlist);
-      setIsGenerating(false);
     },
     onError: (error: any) => {
       console.error('Generation error:', error);
-      Alert.alert('Error', 'Failed to generate playlist. Try again.');
-      setIsGenerating(false);
+      Alert.alert('No se pudo generar', 'La IA no respondió con una playlist válida. Conservamos tus ajustes para que puedas reintentar.');
     },
   });
 
@@ -50,17 +49,18 @@ export default function DiscoverScreen() {
       Alert.alert('Select a Mood', 'Choose a mood to generate a playlist.');
       return;
     }
-    setIsGenerating(true);
     setGeneratedPlaylist(null);
 
     try {
       await generateMutation.mutateAsync({
         mood: selectedMood,
         trackCount,
+        creativity,
+        strictMode,
       });
     } catch (error) {
       console.error('Mutation error:', error);
-      setIsGenerating(false);
+      // onError ya ofrece una salida recuperable sin sustituir el resultado por datos ficticios.
     }
   };
 
@@ -78,7 +78,7 @@ export default function DiscoverScreen() {
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.title}>AI Generator</Text>
-            <Text style={styles.subtitle}>Select your mood and let AI create</Text>
+          <Text style={styles.subtitle}>Define tu intención; la IA explicará cada selección.</Text>
           </View>
 
           {/* Mood Grid */}
@@ -113,7 +113,7 @@ export default function DiscoverScreen() {
               size={16}
               color={GLASS_COLORS.textMuted}
             />
-            <Text style={styles.advancedLabel}>Advanced Settings</Text>
+              <Text style={styles.advancedLabel}>Ajustes de generación</Text>
             <View style={styles.advancedBadge}>
               <Text style={styles.advancedBadgeText}>Pro</Text>
             </View>
@@ -179,6 +179,7 @@ export default function DiscoverScreen() {
                   </Pressable>
                 </View>
               </View>
+              <Text style={styles.advancedNote}>Estos ajustes se envían al proveedor de IA junto con el número de pistas.</Text>
             </GlassCard>
           )}
 
@@ -186,22 +187,22 @@ export default function DiscoverScreen() {
           <View style={styles.generateContainer}>
             <Pressable
               onPress={handleGenerate}
-              disabled={isGenerating || !selectedMood}
+              disabled={generateMutation.isPending || !selectedMood}
               style={({ pressed }) => [
                 styles.generateBtn,
-                (isGenerating || !selectedMood) && styles.generateBtnDisabled,
-                pressed && !isGenerating && { transform: [{ scale: 0.97 }] },
+                (generateMutation.isPending || !selectedMood) && styles.generateBtnDisabled,
+                pressed && !generateMutation.isPending && { transform: [{ scale: 0.97 }] },
               ]}
             >
-              {isGenerating ? (
+              {generateMutation.isPending ? (
                 <View style={styles.generateBtnContent}>
                   <ActivityIndicator size="small" color={GLASS_COLORS.black} />
-                  <Text style={styles.generateBtnText}>Generating...</Text>
+                  <Text style={styles.generateBtnText}>Generando con IA…</Text>
                 </View>
               ) : (
                 <View style={styles.generateBtnContent}>
                   <IconSymbol name="sparkles" size={18} color={GLASS_COLORS.black} />
-                  <Text style={styles.generateBtnText}>Generate</Text>
+                  <Text style={styles.generateBtnText}>Generar playlist</Text>
                 </View>
               )}
             </Pressable>
@@ -242,11 +243,14 @@ export default function DiscoverScreen() {
 
               {/* Save Button */}
               <Pressable
-                onPress={() => Alert.alert('Saved', 'Playlist saved to your library!')}
+                onPress={() => {
+                  savePlaylist(generatedPlaylist);
+                  Alert.alert('Guardada', 'La playlist ya forma parte de tu biblioteca local en este dispositivo.');
+                }}
                 style={({ pressed }) => [styles.saveBtn, pressed && { opacity: 0.8 }]}
               >
                 <IconSymbol name="heart.fill" size={16} color={GLASS_COLORS.purpleSoft} />
-                <Text style={styles.saveBtnText}>Save to Library</Text>
+                <Text style={styles.saveBtnText}>Guardar en biblioteca</Text>
               </Pressable>
             </View>
           )}
@@ -298,6 +302,7 @@ const styles = StyleSheet.create({
   advancedBadgeText: { color: GLASS_COLORS.black, fontSize: 10, fontWeight: '700' },
 
   advancedPanel: { marginHorizontal: 16, marginTop: 12, padding: 16, gap: 16 },
+  advancedNote: { color: GLASS_COLORS.textMuted, fontSize: 11, lineHeight: 16 },
   settingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   settingLabel: { color: GLASS_COLORS.textPrimary, fontSize: 13, fontWeight: '600' },
   settingValue: { color: GLASS_COLORS.textMuted, fontSize: 11, marginTop: 4 },

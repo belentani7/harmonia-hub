@@ -41,7 +41,7 @@ describe('HARMONÍA + PVC-U Universal Validation Protocol', () => {
   });
 
   it('should record validated workflows in the immutable ledger', () => {
-    const clipper = new HarmoniaClipperWorkflow(
+    new HarmoniaClipperWorkflow(
       'https://example.com/ledger-test',
       'Ledger Test',
       '<p>Content for ledger verification test.</p>'

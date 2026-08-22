@@ -100,6 +100,78 @@ export const pvcuLedgerRecords = mysqlTable(
   }),
 );
 
+/** Playlists generated or explicitly saved by one authenticated user. */
+export const musicPlaylists = mysqlTable(
+  "music_playlists",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("user_id").notNull(),
+    clientPlaylistId: varchar("client_playlist_id", { length: 191 }).notNull(),
+    title: varchar("title", { length: 255 }).notNull(),
+    description: text("description").notNull(),
+    coverUrl: text("cover_url").notNull(),
+    mood: varchar("mood", { length: 32 }),
+    context: varchar("context", { length: 32 }),
+    genres: json("genres").notNull(),
+    tracks: json("tracks").notNull(),
+    source: mysqlEnum("source", ["ai", "manual"]).default("ai").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull().onUpdateNow(),
+  },
+  (table) => ({
+    ownerIdx: index("music_playlists_user_idx").on(table.userId),
+    ownerClientIdx: uniqueIndex("music_playlists_owner_client_idx").on(table.userId, table.clientPlaylistId),
+  }),
+);
+
+/** A durable user-owned track state, deliberately separate from seeded or catalog data. */
+export const musicTrackStates = mysqlTable(
+  "music_track_states",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("user_id").notNull(),
+    trackId: varchar("track_id", { length: 191 }).notNull(),
+    state: mysqlEnum("state", ["liked", "recent"]).notNull(),
+    track: json("track").notNull(),
+    occurredAt: timestamp("occurred_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    ownerStateIdx: index("music_track_states_owner_state_idx").on(table.userId, table.state),
+    ownerTrackStateIdx: uniqueIndex("music_track_states_owner_track_state_idx").on(table.userId, table.trackId, table.state),
+  }),
+);
+
+/** Owner-level control gate checked by the Council UI and worker before commit. */
+export const councilControls = mysqlTable(
+  "council_controls",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("user_id").notNull(),
+    killSwitchActive: int("kill_switch_active").default(0).notNull(),
+    updatedByUserId: int("updated_by_user_id").notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull().onUpdateNow(),
+  },
+  (table) => ({
+    ownerIdx: uniqueIndex("council_controls_user_idx").on(table.userId),
+  }),
+);
+
+/** Immutable application-level audit trail for owner overrides and Council decisions. */
+export const councilAuditLogs = mysqlTable(
+  "council_audit_logs",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("user_id").notNull(),
+    actorUserId: int("actor_user_id").notNull(),
+    eventType: varchar("event_type", { length: 80 }).notNull(),
+    details: json("details").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    ownerCreatedIdx: index("council_audit_logs_owner_created_idx").on(table.userId, table.createdAt),
+  }),
+);
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type CrmContact = typeof crmContacts.$inferSelect;
@@ -110,3 +182,11 @@ export type AutomationRun = typeof automationRuns.$inferSelect;
 export type InsertAutomationRun = typeof automationRuns.$inferInsert;
 export type PvcuLedgerRecord = typeof pvcuLedgerRecords.$inferSelect;
 export type InsertPvcuLedgerRecord = typeof pvcuLedgerRecords.$inferInsert;
+export type MusicPlaylist = typeof musicPlaylists.$inferSelect;
+export type InsertMusicPlaylist = typeof musicPlaylists.$inferInsert;
+export type MusicTrackState = typeof musicTrackStates.$inferSelect;
+export type InsertMusicTrackState = typeof musicTrackStates.$inferInsert;
+export type CouncilControl = typeof councilControls.$inferSelect;
+export type InsertCouncilControl = typeof councilControls.$inferInsert;
+export type CouncilAuditLog = typeof councilAuditLogs.$inferSelect;
+export type InsertCouncilAuditLog = typeof councilAuditLogs.$inferInsert;

@@ -3,6 +3,7 @@
  * Almacena cada Validation Envelope con sellado criptográfico y trazabilidad.
  */
 
+import crypto from 'crypto';
 import { ValidationEnvelope } from './pvc-u-profile';
 
 export interface LedgerRecord {
@@ -15,14 +16,13 @@ export interface LedgerRecord {
 
 export class PVCULedger {
   private records: LedgerRecord[] = [];
-  private crypto = require('crypto');
 
   public append(workflowId: string, envelope: ValidationEnvelope): LedgerRecord {
     const sequenceId = this.records.length + 1;
     const previousHash = sequenceId === 1 ? '0000000000000000000000000000000000000000000000000000000000000000' : this.records[this.records.length - 1].recordHash;
     
     const payload = `${sequenceId}:${workflowId}:${envelope.envelopeId}:${envelope.inputHash}:${previousHash}`;
-    const recordHash = this.crypto.createHash('sha256').update(payload).digest('hex');
+    const recordHash = crypto.createHash('sha256').update(payload).digest('hex');
 
     const record: LedgerRecord = {
       sequenceId,

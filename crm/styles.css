@@ -41,7 +41,9 @@ h2 { font-size: 20px; letter-spacing: -.02em; }
 .button:active { transform: scale(.97); }
 .button.primary { background: linear-gradient(135deg, var(--accent-strong), var(--accent)); border: 0; color: #160b20; font-weight: 800; }
 .button.secondary { background: rgba(255,255,255,.05); }
+.button.danger { background: rgba(127, 29, 29, .38); border-color: rgba(252, 165, 165, .48); color: #fecaca; font-weight: 800; }
 .button.small { padding: 6px 10px; font-size: 12px; }
+.governance-metrics { margin: 0 0 18px; }
 .form { display: grid; grid-template-columns: 1.1fr 1.2fr .8fr .7fr auto; gap: 8px; margin-bottom: 16px; }
 input, select { width: 100%; background: rgba(255,255,255,.05); color: var(--text); border: 1px solid var(--line); border-radius: 12px; padding: 10px 11px; outline: none; }
 input:focus, select:focus { border-color: var(--accent); }

@@ -1,17 +1,22 @@
-import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
-import { Track, Playlist } from '@/shared/types';
+import { createContext, useCallback, useContext, useMemo, useState } from "react";
+
+import { useLibrary } from "@/lib/library-context";
+import type { Playlist, Track } from "@/shared/types";
+
+export type PlaybackStatus = "idle" | "unavailable" | "loading" | "playing" | "paused" | "buffering" | "ended" | "error";
 
 interface PlayerState {
   currentTrack: Track | null;
   currentPlaylist: Playlist | null;
   queue: Track[];
   isPlaying: boolean;
-  progress: number; // 0-1
-  currentTime: number; // seconds
-  volume: number; // 0-1
+  progress: number;
+  currentTime: number;
+  volume: number;
   isShuffle: boolean;
-  repeatMode: 'none' | 'one' | 'all';
+  repeatMode: "none" | "one" | "all";
   isPlayerVisible: boolean;
+  playbackStatus: PlaybackStatus;
 }
 
 interface PlayerContextType extends PlayerState {
@@ -26,175 +31,56 @@ interface PlayerContextType extends PlayerState {
   toggleRepeat: () => void;
   openPlayer: () => void;
   closePlayer: () => void;
-  toggleLike: (trackId: string) => void;
+  toggleLike: (track: Track) => void;
   likedTrackIds: Set<string>;
+  canPlayCurrentTrack: boolean;
 }
 
 const PlayerContext = createContext<PlayerContextType | null>(null);
+const initialState: PlayerState = { currentTrack: null, currentPlaylist: null, queue: [], isPlaying: false, progress: 0, currentTime: 0, volume: 0.8, isShuffle: false, repeatMode: "none", isPlayerVisible: false, playbackStatus: "idle" };
 
-const MOCK_COVER_URLS = [
-  'https://picsum.photos/seed/music1/300/300',
-  'https://picsum.photos/seed/music2/300/300',
-  'https://picsum.photos/seed/music3/300/300',
-  'https://picsum.photos/seed/music4/300/300',
-  'https://picsum.photos/seed/music5/300/300',
-];
-
+/** No timer is used: without a licensed `audioUrl`, the UI reports audio as unavailable. */
 export function PlayerProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<PlayerState>({
-    currentTrack: null,
-    currentPlaylist: null,
-    queue: [],
-    isPlaying: false,
-    progress: 0,
-    currentTime: 0,
-    volume: 0.8,
-    isShuffle: false,
-    repeatMode: 'none',
-    isPlayerVisible: false,
-  });
-  const [likedTrackIds, setLikedTrackIds] = useState<Set<string>>(new Set());
-  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [state, setState] = useState<PlayerState>(initialState);
+  const library = useLibrary();
 
-  const startProgressSimulation = useCallback((duration: number) => {
-    if (progressIntervalRef.current) {
-      clearInterval(progressIntervalRef.current);
-    }
-    progressIntervalRef.current = setInterval(() => {
-      setState(prev => {
-        if (!prev.isPlaying) return prev;
-        const newTime = prev.currentTime + 1;
-        if (newTime >= duration) {
-          return { ...prev, currentTime: 0, progress: 0, isPlaying: false };
-        }
-        return { ...prev, currentTime: newTime, progress: newTime / duration };
-      });
-    }, 1000);
-  }, []);
+  const selectTrack = useCallback((track: Track, playlist?: Playlist, queue?: Track[]) => {
+    library.recordRecent(track);
+    setState((previous) => ({ ...previous, currentTrack: track, currentPlaylist: playlist ?? previous.currentPlaylist, queue: queue ?? previous.queue, isPlaying: false, progress: 0, currentTime: 0, isPlayerVisible: true, playbackStatus: track.audioUrl ? "loading" : "unavailable" }));
+  }, [library]);
 
-  const playTrack = useCallback((track: Track, playlist?: Playlist) => {
-    setState(prev => ({
-      ...prev,
-      currentTrack: track,
-      currentPlaylist: playlist || prev.currentPlaylist,
-      queue: playlist ? playlist.tracks : prev.queue,
-      isPlaying: true,
-      progress: 0,
-      currentTime: 0,
-      isPlayerVisible: true,
-    }));
-    startProgressSimulation(track.duration);
-  }, [startProgressSimulation]);
+  const playTrack = useCallback((track: Track, playlist?: Playlist) => selectTrack(track, playlist, playlist?.tracks ?? []), [selectTrack]);
+  const pauseTrack = useCallback(() => setState((previous) => previous.playbackStatus === "playing" ? { ...previous, isPlaying: false, playbackStatus: "paused" } : previous), []);
+  const resumeTrack = useCallback(() => setState((previous) => previous.currentTrack ? { ...previous, isPlaying: false, playbackStatus: previous.currentTrack.audioUrl ? "error" : "unavailable" } : previous), []);
 
-  const pauseTrack = useCallback(() => {
-    setState(prev => ({ ...prev, isPlaying: false }));
-    if (progressIntervalRef.current) {
-      clearInterval(progressIntervalRef.current);
-    }
-  }, []);
-
-  const resumeTrack = useCallback(() => {
-    setState(prev => {
-      if (prev.currentTrack) {
-        startProgressSimulation(prev.currentTrack.duration);
-        return { ...prev, isPlaying: true };
-      }
-      return prev;
+  const moveQueue = useCallback((direction: 1 | -1) => {
+    setState((previous) => {
+      if (!previous.currentTrack || previous.queue.length === 0) return previous;
+      const currentIndex = previous.queue.findIndex((track) => track.id === previous.currentTrack?.id);
+      const baseIndex = currentIndex < 0 ? 0 : currentIndex;
+      const nextIndex = previous.isShuffle ? (baseIndex + 1) % previous.queue.length : (baseIndex + direction + previous.queue.length) % previous.queue.length;
+      const track = previous.queue[nextIndex];
+      library.recordRecent(track);
+      return { ...previous, currentTrack: track, isPlaying: false, progress: 0, currentTime: 0, playbackStatus: track.audioUrl ? "loading" : "unavailable" };
     });
-  }, [startProgressSimulation]);
+  }, [library]);
 
-  const nextTrack = useCallback(() => {
-    setState(prev => {
-      if (!prev.currentTrack || prev.queue.length === 0) return prev;
-      const currentIndex = prev.queue.findIndex(t => t.id === prev.currentTrack!.id);
-      const nextIndex = prev.isShuffle
-        ? Math.floor(Math.random() * prev.queue.length)
-        : (currentIndex + 1) % prev.queue.length;
-      const nextTrack = prev.queue[nextIndex];
-      startProgressSimulation(nextTrack.duration);
-      return { ...prev, currentTrack: nextTrack, isPlaying: true, progress: 0, currentTime: 0 };
-    });
-  }, [startProgressSimulation]);
+  const nextTrack = useCallback(() => moveQueue(1), [moveQueue]);
+  const prevTrack = useCallback(() => moveQueue(-1), [moveQueue]);
+  const seekTo = useCallback((_progress: number) => undefined, []);
+  const setVolume = useCallback((volume: number) => setState((previous) => ({ ...previous, volume: Math.max(0, Math.min(1, volume)) })), []);
+  const toggleShuffle = useCallback(() => setState((previous) => ({ ...previous, isShuffle: !previous.isShuffle })), []);
+  const toggleRepeat = useCallback(() => setState((previous) => { const modes: PlayerState["repeatMode"][] = ["none", "all", "one"]; return { ...previous, repeatMode: modes[(modes.indexOf(previous.repeatMode) + 1) % modes.length] }; }), []);
+  const openPlayer = useCallback(() => setState((previous) => ({ ...previous, isPlayerVisible: true })), []);
+  const closePlayer = useCallback(() => setState((previous) => ({ ...previous, isPlayerVisible: false })), []);
 
-  const prevTrack = useCallback(() => {
-    setState(prev => {
-      if (!prev.currentTrack || prev.queue.length === 0) return prev;
-      const currentIndex = prev.queue.findIndex(t => t.id === prev.currentTrack!.id);
-      const prevIndex = currentIndex === 0 ? prev.queue.length - 1 : currentIndex - 1;
-      const prevTrack = prev.queue[prevIndex];
-      startProgressSimulation(prevTrack.duration);
-      return { ...prev, currentTrack: prevTrack, isPlaying: true, progress: 0, currentTime: 0 };
-    });
-  }, [startProgressSimulation]);
+  const value = useMemo<PlayerContextType>(() => ({ ...state, playTrack, pauseTrack, resumeTrack, nextTrack, prevTrack, seekTo, setVolume, toggleShuffle, toggleRepeat, openPlayer, closePlayer, toggleLike: library.toggleLike, likedTrackIds: new Set(Object.keys(library.likedTracks)), canPlayCurrentTrack: false }), [closePlayer, library.likedTracks, library.toggleLike, nextTrack, openPlayer, pauseTrack, playTrack, prevTrack, resumeTrack, seekTo, setVolume, state, toggleRepeat, toggleShuffle]);
 
-  const seekTo = useCallback((progress: number) => {
-    setState(prev => {
-      if (!prev.currentTrack) return prev;
-      const newTime = progress * prev.currentTrack.duration;
-      return { ...prev, progress, currentTime: newTime };
-    });
-  }, []);
-
-  const setVolume = useCallback((volume: number) => {
-    setState(prev => ({ ...prev, volume }));
-  }, []);
-
-  const toggleShuffle = useCallback(() => {
-    setState(prev => ({ ...prev, isShuffle: !prev.isShuffle }));
-  }, []);
-
-  const toggleRepeat = useCallback(() => {
-    setState(prev => {
-      const modes: ('none' | 'one' | 'all')[] = ['none', 'all', 'one'];
-      const currentIndex = modes.indexOf(prev.repeatMode);
-      return { ...prev, repeatMode: modes[(currentIndex + 1) % modes.length] };
-    });
-  }, []);
-
-  const openPlayer = useCallback(() => {
-    setState(prev => ({ ...prev, isPlayerVisible: true }));
-  }, []);
-
-  const closePlayer = useCallback(() => {
-    setState(prev => ({ ...prev, isPlayerVisible: false }));
-  }, []);
-
-  const toggleLike = useCallback((trackId: string) => {
-    setLikedTrackIds(prev => {
-      const next = new Set(prev);
-      if (next.has(trackId)) {
-        next.delete(trackId);
-      } else {
-        next.add(trackId);
-      }
-      return next;
-    });
-  }, []);
-
-  return (
-    <PlayerContext.Provider value={{
-      ...state,
-      playTrack,
-      pauseTrack,
-      resumeTrack,
-      nextTrack,
-      prevTrack,
-      seekTo,
-      setVolume,
-      toggleShuffle,
-      toggleRepeat,
-      openPlayer,
-      closePlayer,
-      toggleLike,
-      likedTrackIds,
-    }}>
-      {children}
-    </PlayerContext.Provider>
-  );
+  return <PlayerContext.Provider value={value}>{children}</PlayerContext.Provider>;
 }
 
 export function usePlayer() {
-  const ctx = useContext(PlayerContext);
-  if (!ctx) throw new Error('usePlayer must be used within PlayerProvider');
-  return ctx;
+  const context = useContext(PlayerContext);
+  if (!context) throw new Error("usePlayer must be used within PlayerProvider");
+  return context;
 }

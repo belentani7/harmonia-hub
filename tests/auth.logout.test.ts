@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { appRouter } from "../server/routers";
 import { COOKIE_NAME } from "../shared/const";
 import type { TrpcContext } from "../server/_core/context";
 
@@ -44,8 +43,7 @@ function createAuthContext(): { ctx: TrpcContext; clearedCookies: CookieCall[] }
 // TODO: Remove `.skip` below once you implement user authentication
 describe.skip("auth.logout", () => {
   it("clears the session cookie and reports success", async () => {
-    const { ctx, clearedCookies } = createAuthContext();
-    const caller = appRouter.createCaller(ctx);
+    const { clearedCookies } = createAuthContext();
 
     // auth.logout is now handled via REST endpoint /api/auth/logout
     const result = { success: true };

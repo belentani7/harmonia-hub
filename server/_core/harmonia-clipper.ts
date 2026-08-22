@@ -3,7 +3,6 @@
  * Integrado con Protocolo de Validación Universal (PVC-U) y Validation Ledger inmutable.
  */
 
-import crypto from 'crypto';
 import { PVCUValidator, ValidationEnvelope } from './pvc-u-profile';
 import { PVCULedger } from './pvc-u-ledger';
 
@@ -122,7 +121,7 @@ export class HarmoniaClipperWorkflow {
         state: { ...this.state },
         fileContent: this.state.markdownContent,
       };
-    } catch (error) {
+    } catch {
       this.state.status = 'failed';
       this.state.updatedAt = new Date().toISOString();
       this.state.auditTrail.push({ event: 'phase_commit_failed', timestamp: this.state.updatedAt });

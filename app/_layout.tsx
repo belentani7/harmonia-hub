@@ -3,6 +3,7 @@ import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "@/lib/theme-provider";
+import { LibraryProvider } from "@/lib/library-context";
 import { PlayerProvider } from "@/lib/player-context";
 import { trpc, createTRPCClient } from "@/lib/trpc";
 import { useMemo } from "react";
@@ -16,7 +17,8 @@ export default function RootLayout() {
       <trpc.Provider client={trpcClient} queryClient={queryClient}>
         <QueryClientProvider client={queryClient}>
           <ThemeProvider>
-            <PlayerProvider>
+            <LibraryProvider>
+              <PlayerProvider>
               <StatusBar style="light" backgroundColor="#121212" />
               <Stack
                 screenOptions={{
@@ -39,7 +41,8 @@ export default function RootLayout() {
                 <Stack.Screen name="onboarding" options={{ headerShown: false }} />
                 <Stack.Screen name="subscription" options={{ headerShown: false }} />
               </Stack>
-            </PlayerProvider>
+              </PlayerProvider>
+            </LibraryProvider>
           </ThemeProvider>
         </QueryClientProvider>
       </trpc.Provider>

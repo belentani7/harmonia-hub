@@ -54,6 +54,12 @@
         <div class="panel-heading"><div><p class="eyebrow">PVC-U VALIDATION LEDGER</p><h2>Historial de ejecuciones</h2></div></div>
         <div id="runs" class="table-wrap"><p class="muted">Cargando…</p></div>
       </section>
+
+      <section id="governance-panel" class="panel hidden">
+        <div class="panel-heading"><div><p class="eyebrow">OWNER GOVERNANCE</p><h2>Control HARMONÍA</h2><p class="muted">El kill switch bloquea commits nuevos antes de la fase de confirmación PVC-U.</p></div><button id="kill-switch" class="button danger">Activar kill switch</button></div>
+        <div class="metrics governance-metrics"><article class="metric-card"><span>Estado</span><strong id="kill-status">—</strong></article><article class="metric-card"><span>Última actualización</span><strong id="kill-updated">—</strong></article><article class="metric-card"><span>Entradas PVC-U</span><strong id="ledger-count">—</strong></article></div>
+        <div id="governance-audit" class="table-wrap"><p class="muted">Cargando auditoría…</p></div>
+      </section>
     </main>
     <script src="/crm/app.js" defer></script>
   </body>

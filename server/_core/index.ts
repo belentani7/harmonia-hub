@@ -10,6 +10,7 @@ import { registerOAuthRoutes } from "./oauth";
 import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
+import { rateLimitMiddleware, securityHeadersMiddleware, securityLoggingMiddleware } from "./security-middleware";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -33,30 +34,48 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 async function startServer() {
   const app = express();
   const server = createServer(app);
+  app.set("trust proxy", 1);
 
-  // Enable CORS for all routes - reflect the request origin to support credentials
+  const configuredOrigins = (process.env.ALLOWED_ORIGINS ?? "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  const allowedOrigins = new Set([
+    "https://belentani.com",
+    "https://api.belentani.com",
+    "https://app.belentani.com",
+    ...configuredOrigins,
+  ]);
+  const isDevelopmentOrigin = (origin: string) => process.env.NODE_ENV !== "production" && (
+    origin.startsWith("http://localhost:") ||
+    origin.startsWith("http://127.0.0.1:") ||
+    /^https:\/\/[^/]+\.manus\.computer$/.test(origin)
+  );
+
+  app.use(securityHeadersMiddleware);
   app.use((req, res, next) => {
     const origin = req.headers.origin;
     if (origin) {
+      if (!allowedOrigins.has(origin) && !isDevelopmentOrigin(origin)) {
+        return res.status(403).json({ error: "Origin is not allowed" });
+      }
       res.header("Access-Control-Allow-Origin", origin);
+      res.header("Vary", "Origin");
+      res.header("Access-Control-Allow-Credentials", "true");
+      res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+      res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-CSRF-Token");
     }
-    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    res.header(
-      "Access-Control-Allow-Headers",
-      "Origin, X-Requested-With, Content-Type, Accept, Authorization",
-    );
-    res.header("Access-Control-Allow-Credentials", "true");
-
-    // Handle preflight requests
     if (req.method === "OPTIONS") {
-      res.sendStatus(200);
+      res.sendStatus(204);
       return;
     }
     next();
   });
 
-  app.use(express.json({ limit: "50mb" }));
-  app.use(express.urlencoded({ limit: "50mb", extended: true }));
+  app.use(express.json({ limit: "1mb" }));
+  app.use(express.urlencoded({ limit: "1mb", extended: true }));
+  app.use(rateLimitMiddleware);
+  app.use(securityLoggingMiddleware);
 
   registerStorageProxy(app);
   registerOAuthRoutes(app);

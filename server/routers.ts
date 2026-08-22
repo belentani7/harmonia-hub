@@ -5,8 +5,8 @@ import { router, adminProcedure, protectedProcedure, publicProcedure } from "./_
 import { invokeLLM, type Message } from "./_core/llm";
 import { createHeartbeatJob, deleteHeartbeatJob, listHeartbeatJobs, updateHeartbeatJob } from "./_core/heartbeat";
 import { COOKIE_NAME } from "../shared/const";
-import { automationJobs, automationRuns, crmContacts, pvcuLedgerRecords } from "../drizzle/schema";
-import { executeAutomationJob, cronIdempotencyKey } from "./automation/worker";
+import { automationJobs, automationRuns, councilAuditLogs, councilControls, crmContacts, musicPlaylists, musicTrackStates } from "../drizzle/schema";
+import { executeAutomationJob } from "./automation/worker";
 import { getDb } from "./db";
 
 const MASTER_SYSTEM_PROMPT = `You are the autonomous executive council for BELENTANI, an AI music platform.
@@ -20,7 +20,7 @@ When generating playlists:
 - Vary BPM based on mood: focus=110-130, chill=70-100, energy=130-160, sad=60-90, party=120-140, sleep=50-70, romantic=70-90, workout=130-150
 - Provide thoughtful AI insights explaining why each track was selected
 - Generate unique but plausible track IDs
-- Use picsum.photos for cover URLs with unique seeds
+- Treat generated selections as AI suggestions, not as catalog tracks with playback rights
 
 When analyzing metrics:
 - Provide strategic insights based on the numbers
@@ -37,7 +37,7 @@ const PLAYLIST_SCHEMA = {
       id: { type: "string", description: "Unique playlist ID" },
       title: { type: "string", description: "Playlist title" },
       description: { type: "string", description: "Short description" },
-      coverUrl: { type: "string", description: "Cover image URL from picsum.photos" },
+      coverUrl: { type: "string", description: "Neutral artwork URL without a playback-rights claim" },
       mood: { type: "string", description: "Mood of the playlist" },
       context: { type: "string", description: "Context (work, gym, etc)" },
       genres: { type: "array", items: { type: "string" }, description: "Genres" },
@@ -97,18 +97,49 @@ const COUNCIL_SCHEMA = {
   },
 };
 
+const moodSchema = z.enum(['focus', 'chill', 'energy', 'sad', 'party', 'sleep', 'romantic', 'workout']);
+const contextSchema = z.enum(['work', 'gym', 'sleep', 'drive', 'study', 'party', 'meditation']);
+const trackSchema = z.object({
+  id: z.string().min(1).max(191),
+  title: z.string().min(1).max(255),
+  artist: z.string().min(1).max(255),
+  album: z.string().min(1).max(255),
+  duration: z.number().int().min(0).max(3600),
+  coverUrl: z.string().min(1).max(4096),
+  audioUrl: z.string().url().max(4096).optional(),
+  mood: moodSchema.optional(),
+  genre: z.string().min(1).max(64).optional(),
+  bpm: z.number().min(0).max(300).optional(),
+  aiInsight: z.string().max(1200).optional(),
+});
+const playlistSchema = z.object({
+  id: z.string().min(1).max(191),
+  title: z.string().min(1).max(255),
+  description: z.string().min(1).max(2000),
+  coverUrl: z.string().min(1).max(4096),
+  tracks: z.array(trackSchema).min(1).max(40),
+  mood: moodSchema.optional(),
+  context: contextSchema.optional(),
+  genres: z.array(z.string().min(1).max(64)).max(12).default([]),
+  createdAt: z.string().datetime(),
+  isAIGenerated: z.boolean(),
+  playCount: z.number().int().min(0).max(1_000_000_000),
+});
+
 export const appRouter = router({
   playlist: router({
     generate: publicProcedure
       .input(z.object({
-        mood: z.enum(['focus', 'chill', 'energy', 'sad', 'party', 'sleep', 'romantic', 'workout']),
-        context: z.enum(['work', 'gym', 'sleep', 'drive', 'study', 'party', 'meditation']).optional(),
-        genres: z.array(z.string()).optional(),
+        mood: moodSchema,
+        context: contextSchema.optional(),
+        genres: z.array(z.string().min(1).max(64)).max(12).optional(),
         trackCount: z.number().min(4).max(20).default(8),
+        creativity: z.enum(['low', 'high']).default('high'),
+        strictMode: z.boolean().default(false),
       }))
       .mutation(async ({ input }) => {
         if (process.env.VITEST) {
-          return generateFallbackPlaylist(input);
+          return generateFixturePlaylist(input);
         }
 
         const genreList = input.genres && input.genres.length > 0 
@@ -119,10 +150,12 @@ export const appRouter = router({
 - Mood: ${input.mood}
 - Context: ${input.context || 'general listening'}
 - Genres: ${genreList}
+- Creativity: ${input.creativity === 'high' ? 'exploratory but coherent' : 'conservative and familiar'}
+- Strict mode: ${input.strictMode ? 'honor supplied mood and genres exactly' : 'allow adjacent genres when useful'}
 
 Create realistic, high-quality tracks that fit the mood and context perfectly. Use real or plausible artist names. 
 Vary the BPM appropriately for the mood. Provide thoughtful AI insights for each track.
-Generate unique cover URLs using picsum.photos with different seeds for each track.
+Use neutral artwork URLs only; do not imply an audio stream or licensed catalog availability.
 Make sure all durations are between 120-300 seconds.`;
 
         try {
@@ -139,56 +172,149 @@ Make sure all durations are between 120-300 seconds.`;
 
           const content = response.choices[0].message.content as string;
           const data = JSON.parse(content);
-          return data;
+          return playlistSchema.parse(data);
         } catch (error) {
           console.error('LLM playlist generation failed:', error);
-          // Return a structured fallback with realistic data
-          return generateFallbackPlaylist(input);
+          throw new Error('Playlist generation is temporarily unavailable. Please retry.');
         }
       }),
   }),
 
+  library: router({
+    listPlaylists: protectedProcedure.query(async ({ ctx }) => {
+      const db = await getDb();
+      if (!db) throw new Error('DATABASE_URL is required for library access');
+      return db.select().from(musicPlaylists).where(eq(musicPlaylists.userId, ctx.user.id)).orderBy(desc(musicPlaylists.updatedAt));
+    }),
+    savePlaylist: protectedProcedure.input(playlistSchema).mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new Error('DATABASE_URL is required for library access');
+      const values = {
+        userId: ctx.user.id,
+        clientPlaylistId: input.id,
+        title: input.title,
+        description: input.description,
+        coverUrl: input.coverUrl,
+        mood: input.mood,
+        context: input.context,
+        genres: input.genres,
+        tracks: input.tracks,
+        source: input.isAIGenerated ? 'ai' as const : 'manual' as const,
+      };
+      await db.insert(musicPlaylists).values(values).onDuplicateKeyUpdate({
+        set: {
+          title: values.title,
+          description: values.description,
+          coverUrl: values.coverUrl,
+          mood: values.mood,
+          context: values.context,
+          genres: values.genres,
+          tracks: values.tracks,
+          source: values.source,
+        },
+      });
+      return { success: true, playlistId: input.id };
+    }),
+    removePlaylist: protectedProcedure.input(z.object({ playlistId: z.string().min(1).max(191) })).mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new Error('DATABASE_URL is required for library access');
+      await db.delete(musicPlaylists).where(and(eq(musicPlaylists.userId, ctx.user.id), eq(musicPlaylists.clientPlaylistId, input.playlistId)));
+      return { success: true };
+    }),
+    listTrackStates: protectedProcedure.query(async ({ ctx }) => {
+      const db = await getDb();
+      if (!db) throw new Error('DATABASE_URL is required for library access');
+      return db.select().from(musicTrackStates).where(eq(musicTrackStates.userId, ctx.user.id)).orderBy(desc(musicTrackStates.occurredAt));
+    }),
+    setTrackState: protectedProcedure.input(z.object({ state: z.enum(['liked', 'recent']), track: trackSchema })).mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new Error('DATABASE_URL is required for library access');
+      const existing = await db.select().from(musicTrackStates).where(and(eq(musicTrackStates.userId, ctx.user.id), eq(musicTrackStates.trackId, input.track.id), eq(musicTrackStates.state, input.state))).limit(1);
+      if (input.state === 'liked' && existing[0]) {
+        await db.delete(musicTrackStates).where(eq(musicTrackStates.id, existing[0].id));
+        return { success: true, active: false };
+      }
+      if (existing[0]) {
+        await db.update(musicTrackStates).set({ track: input.track, occurredAt: new Date() }).where(eq(musicTrackStates.id, existing[0].id));
+      } else {
+        await db.insert(musicTrackStates).values({ userId: ctx.user.id, trackId: input.track.id, state: input.state, track: input.track });
+      }
+      return { success: true, active: true };
+    }),
+  }),
+
   council: router({
-    analyze: publicProcedure
-      .input(z.object({
-        metrics: z.object({
-          users: z.number(),
-          revenue: z.number(),
-          churn: z.number(),
-          engagement: z.number(),
-        }).optional(),
-      }))
-      .mutation(async ({ input }) => {
-        const metrics = input.metrics || { users: 127000, revenue: 42500, churn: 3.2, engagement: 78.4 };
+    state: adminProcedure.query(async ({ ctx }) => {
+      const db = await getDb();
+      if (!db) throw new Error('DATABASE_URL is required for Council access');
+      const control = (await db.select().from(councilControls).where(eq(councilControls.userId, ctx.user.id)).limit(1))[0];
+      const auditLogs = await db.select().from(councilAuditLogs).where(eq(councilAuditLogs.userId, ctx.user.id)).orderBy(desc(councilAuditLogs.createdAt)).limit(50);
+      return {
+        killSwitchActive: control?.killSwitchActive === 1,
+        updatedAt: control?.updatedAt ?? null,
+        auditLogs,
+        agents: [
+          { role: 'CEO', objective: 'Analizar prioridades y proponer estrategia.', autonomy: 'recommendation_only' },
+          { role: 'COO', objective: 'Preparar operaciones idempotentes.', autonomy: 'prepare_only' },
+          { role: 'CMO', objective: 'Proponer mensajes y segmentación.', autonomy: 'recommendation_only' },
+          { role: 'CPO', objective: 'Proponer mejoras con señales permitidas.', autonomy: 'recommendation_only' },
+          { role: 'CTO', objective: 'Diagnosticar salud técnica.', autonomy: 'recommendation_only' },
+        ],
+      };
+    }),
+    setKillSwitch: adminProcedure
+      .input(z.object({ active: z.boolean(), reason: z.string().trim().min(3).max(500) }))
+      .mutation(async ({ input, ctx }) => {
+        const db = await getDb();
+        if (!db) throw new Error('DATABASE_URL is required for Council access');
+        await db.insert(councilControls).values({
+          userId: ctx.user.id,
+          killSwitchActive: input.active ? 1 : 0,
+          updatedByUserId: ctx.user.id,
+        }).onDuplicateKeyUpdate({
+          set: { killSwitchActive: input.active ? 1 : 0, updatedByUserId: ctx.user.id },
+        });
+        await db.insert(councilAuditLogs).values({
+          userId: ctx.user.id,
+          actorUserId: ctx.user.id,
+          eventType: input.active ? 'council.kill_switch.activated' : 'council.kill_switch.released',
+          details: { reason: input.reason },
+        });
+        return { success: true, active: input.active };
+      }),
+    analyze: adminProcedure
+      .input(z.object({ context: z.string().trim().max(1000).optional() }))
+      .mutation(async ({ input, ctx }) => {
+        const db = await getDb();
+        if (!db) throw new Error('DATABASE_URL is required for Council access');
+        const control = (await db.select().from(councilControls).where(eq(councilControls.userId, ctx.user.id)).limit(1))[0];
+        if (control?.killSwitchActive === 1) throw new Error('HARMONIA_KILL_SWITCH_ACTIVE');
+        const contactCount = (await db.select({ id: crmContacts.id }).from(crmContacts).where(eq(crmContacts.userId, ctx.user.id))).length;
+        const activeJobs = (await db.select({ id: automationJobs.id }).from(automationJobs).where(and(eq(automationJobs.userId, ctx.user.id), eq(automationJobs.status, 'active')))).length;
+        const prompt = `As the BELENTANI Executive Council, analyze only the verified operational context below.
+- CRM contacts: ${contactCount}
+- Active automations: ${activeJobs}
+- Revenue, churn and engagement: not instrumented; do not invent metrics.
+- Additional owner context: ${input.context || 'none'}
 
-        const prompt = `As the BELENTANI Executive Council, perform a comprehensive strategic analysis based on these metrics:
-- Users: ${metrics.users}
-- Revenue: $${metrics.revenue}
-- Churn Rate: ${metrics.churn}%
-- Engagement: ${metrics.engagement}%
-
-Analyze the current state, identify opportunities and risks, and propose 3-5 autonomous actions for the council to execute.
-Each action should be assigned to a specific agent (CEO, COO, CMO, CPO, or CTO) and marked as either 'executed', 'pending', or 'rejected'.
-Provide strategic next steps for the platform.`;
-
+Propose recommendations only. Never claim that an external action has been executed. Every proposed action must be marked pending.`;
         try {
           const response = await invokeLLM({
-            messages: [
-              { role: 'system' as const, content: MASTER_SYSTEM_PROMPT },
-              { role: 'user' as const, content: prompt },
-            ] as Message[],
-            response_format: {
-              type: 'json_schema' as const,
-              json_schema: COUNCIL_SCHEMA,
-            },
+            messages: [{ role: 'system' as const, content: MASTER_SYSTEM_PROMPT }, { role: 'user' as const, content: prompt }] as Message[],
+            response_format: { type: 'json_schema' as const, json_schema: COUNCIL_SCHEMA },
           });
-
-          const content = response.choices[0].message.content as string;
-          return JSON.parse(content);
+          const result = JSON.parse(response.choices[0].message.content as string);
+          const normalized = { ...result, autonomousActions: result.autonomousActions.map((action: Record<string, unknown>) => ({ ...action, status: 'pending' })) };
+          await db.insert(councilAuditLogs).values({
+            userId: ctx.user.id,
+            actorUserId: ctx.user.id,
+            eventType: 'council.analysis.generated',
+            details: normalized,
+          });
+          return normalized;
         } catch (error) {
           console.error('LLM council analysis failed:', error);
-          // Return a structured fallback
-          return generateFallbackCouncilAnalysis(metrics);
+          throw new Error('Council analysis is temporarily unavailable. Please retry.');
         }
       }),
   }),
@@ -310,7 +436,7 @@ Provide strategic next steps for the platform.`;
   }),
 });
 
-function generateFallbackPlaylist(input: {
+function generateFixturePlaylist(input: {
   mood: string;
   context?: string;
   genres?: string[];
@@ -339,7 +465,7 @@ function generateFallbackPlaylist(input: {
     id: `ai-${Date.now()}`,
     title: `${input.mood.charAt(0).toUpperCase() + input.mood.slice(1)} Playlist`,
     description: `AI-curated playlist for ${input.mood} mood${input.context ? ` while ${input.context}` : ''}`,
-    coverUrl: `https://picsum.photos/seed/${seed}/300/300`,
+    coverUrl: `https://example.invalid/belentani-art/${seed}.png`,
     mood: input.mood,
     context: input.context || '',
     genres: input.genres || ['electronic', 'indie'],
@@ -352,64 +478,12 @@ function generateFallbackPlaylist(input: {
       artist: artistNames[i % artistNames.length],
       album: 'AI Sessions Vol.1',
       duration: 180 + Math.floor(Math.random() * 100),
-      coverUrl: `https://picsum.photos/seed/${seed}${i}/300/300`,
+      coverUrl: `https://example.invalid/belentani-art/${seed}-${i}.png`,
       mood: input.mood,
       genre: input.genres?.[i % input.genres.length] || 'electronic',
       bpm: bpm + (Math.random() * 20 - 10),
       aiInsight: `Selected for ${input.mood} mood based on acoustic analysis and your listening patterns.`,
     })),
-  };
-}
-
-function generateFallbackCouncilAnalysis(metrics: {
-  users: number;
-  revenue: number;
-  churn: number;
-  engagement: number;
-}) {
-  const growthTrend = metrics.users > 100000 ? 'strong' : 'moderate';
-  const revenueTrend = metrics.revenue > 40000 ? 'positive' : 'needs attention';
-
-  return {
-    summary: `Market analysis reveals ${growthTrend} growth in AI-curated music. Current engagement at ${metrics.engagement}% indicates ${metrics.engagement > 75 ? 'strong' : 'moderate'} user satisfaction. Churn rate of ${metrics.churn}% is ${metrics.churn < 5 ? 'healthy' : 'concerning'}. Recommend expanding mood detection capabilities and increasing TikTok integration.`,
-    keyDecisions: [
-      'Expand Study Beats category targeting Gen-Z demographic',
-      'Increase investment in mood-detection algorithm improvements',
-      'Launch TikTok short-form playlist previews',
-    ],
-    autonomousActions: [
-      {
-        id: 'a1',
-        action: 'Optimized recommendation algorithm for 15% better engagement',
-        agent: 'CTO',
-        status: 'executed',
-        timestamp: new Date(Date.now() - 3600000).toISOString(),
-      },
-      {
-        id: 'a2',
-        action: 'Reallocated marketing budget to high-performing channels',
-        agent: 'CMO',
-        status: 'executed',
-        timestamp: new Date(Date.now() - 7200000).toISOString(),
-      },
-      {
-        id: 'a3',
-        action: 'Initiated partnership discussions with 50 independent artists',
-        agent: 'COO',
-        status: 'pending',
-        timestamp: new Date().toISOString(),
-      },
-    ],
-    nextSteps: [
-      'Launch podcast integration by end of quarter',
-      'Implement predictive churn model',
-      'Expand to Brazilian market with localized content',
-    ],
-    risks: [
-      `Spotify's new AI features may compete with our mood detection`,
-      'TikTok integration surge requires short-form playlist optimization',
-      `Gen-Z churn higher than average - need gamification features`,
-    ],
   };
 }
 

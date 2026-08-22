@@ -3,8 +3,9 @@
  * Implementa todas las capas del protocolo de seguridad
  */
 
+import crypto from 'crypto';
 import { Request, Response, NextFunction } from 'express';
-import { SECURITY_HEADERS, CORS_CONFIG, checkRateLimit, sanitizeInput, generateCSRFToken, respondToSecurityIncident } from './security';
+import { SECURITY_HEADERS, CORS_CONFIG, RATE_LIMITS, checkRateLimit, sanitizeInput, generateCSRFToken, respondToSecurityIncident } from './security';
 
 /**
  * Middleware 1: Security Headers
@@ -54,7 +55,7 @@ export async function rateLimitMiddleware(req: Request, res: Response, next: Nex
     
     const limit = await checkRateLimit(userId, limitType);
     
-    res.setHeader('X-RateLimit-Limit', '1000');
+    res.setHeader('X-RateLimit-Limit', String(RATE_LIMITS[limitType].max));
     res.setHeader('X-RateLimit-Remaining', limit.remaining);
     res.setHeader('X-RateLimit-Reset', limit.resetAt.toISOString());
     
@@ -199,7 +200,7 @@ export function securityLoggingMiddleware(req: Request, res: Response, next: Nex
       status: res.statusCode,
       duration,
       userId: (req as any).user?.id || 'anonymous',
-      ipHash: require('crypto').createHash('sha256').update(req.ip || '').digest('hex').slice(0, 8),
+      ipHash: crypto.createHash('sha256').update(req.ip || '').digest('hex').slice(0, 8),
     };
     
     // Log only to structured logger, not console in production

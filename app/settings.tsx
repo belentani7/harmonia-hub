@@ -1,154 +1,70 @@
-import React from 'react';
-import { View, Text, Pressable, ScrollView, StyleSheet, Switch } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
-import { ScreenContainer } from '@/components/screen-container';
+
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { ScreenContainer } from '@/components/screen-container';
 
 export default function SettingsScreen() {
-  const [notifications, setNotifications] = React.useState(true);
-  const [autoPlay, setAutoPlay] = React.useState(true);
-  const [highQuality, setHighQuality] = React.useState(false);
-
   return (
-    <ScreenContainer containerClassName="bg-[#121212]" edges={['top', 'left', 'right']}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
+    <ScreenContainer containerClassName="bg-[#0A0A0E]" edges={['top', 'left', 'right']}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <Pressable
-            onPress={() => router.back()}
-            style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.6 }]}
-          >
-            <IconSymbol name="arrow.left" size={24} color="#FFFFFF" />
+          <Pressable accessibilityLabel="Volver" onPress={() => router.back()} style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.6 }]}>
+            <IconSymbol name="arrow.left" size={22} color="#FFFFFF" />
           </Pressable>
-          <Text style={styles.title}>Settings</Text>
-          <View style={{ width: 40 }} />
+          <Text style={styles.title}>Ajustes</Text>
+          <View style={styles.backBtn} />
         </View>
 
-        {/* Account Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Account</Text>
-          <View style={styles.menuCard}>
-            <Pressable style={[styles.menuItem, styles.menuItemBorder]}>
-              <IconSymbol name="person.fill" size={18} color="#B3B3B3" />
-              <Text style={styles.menuLabel}>Edit Profile</Text>
-              <IconSymbol name="chevron.right" size={16} color="#B3B3B3" />
-            </Pressable>
-            <Pressable style={[styles.menuItem, styles.menuItemBorder]}>
-              <IconSymbol name="dollarsign.circle.fill" size={18} color="#FFD700" />
-              <Text style={styles.menuLabel}>Subscription Plan</Text>
-              <View style={styles.freeBadge}>
-                <Text style={styles.freeBadgeText}>FREE</Text>
-              </View>
-              <IconSymbol name="chevron.right" size={16} color="#B3B3B3" />
-            </Pressable>
-            <Pressable style={styles.menuItem}>
-              <IconSymbol name="lock.fill" size={18} color="#B3B3B3" />
-              <Text style={styles.menuLabel}>Privacy & Security</Text>
-              <IconSymbol name="chevron.right" size={16} color="#B3B3B3" />
-            </Pressable>
+        <Section title="PRIVACIDAD Y DATOS">
+          <Capability icon="shield.fill" title="Biblioteca en este dispositivo" description="Tus playlists, favoritos e historial se guardan localmente hasta que conectes una sesión de sincronización." state="ACTIVO" />
+          <Capability icon="lock.fill" title="Sesión y secretos" description="Las credenciales no se muestran en la app. Las acciones administrativas se verifican en el servidor." state="PROTEGIDO" />
+        </Section>
+
+        <Section title="CAPACIDADES">
+          <Capability icon="waveform" title="Reproducción de audio" description="No hay fuente de audio conectada. La aplicación no simula progreso, descargas ni reproducción." state="PENDIENTE" warning />
+          <Capability icon="bell.fill" title="Notificaciones" description="No se solicitan permisos ni se envían notificaciones hasta configurar un servicio de entrega y sus preferencias." state="PENDIENTE" warning />
+          <Capability icon="dollarsign.circle.fill" title="Suscripciones" description="Los pagos y los entitlements no están habilitados mientras no exista un proveedor de cobro verificado." state="PENDIENTE" warning />
+        </Section>
+
+        <Section title="SOBRE BELENTANI">
+          <View style={styles.aboutCard}>
+            <Text style={styles.aboutTitle}>Music × AI × Identity</Text>
+            <Text style={styles.aboutBody}>BELENTANI genera selecciones explicables. HARMONÍA añade control humano, auditoría PVC-U y automatizaciones supervisadas.</Text>
+            <Text style={styles.version}>Versión de producto: 1.0.0</Text>
           </View>
-        </View>
-
-        {/* Preferences */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Preferences</Text>
-          <View style={styles.menuCard}>
-            <View style={[styles.menuItem, styles.menuItemBorder]}>
-              <IconSymbol name="bell.fill" size={18} color="#B3B3B3" />
-              <Text style={styles.menuLabel}>Notifications</Text>
-              <Switch
-                value={notifications}
-                onValueChange={setNotifications}
-                trackColor={{ false: '#333333', true: '#1DB954' }}
-                thumbColor="#FFFFFF"
-              />
-            </View>
-            <View style={[styles.menuItem, styles.menuItemBorder]}>
-              <IconSymbol name="play.fill" size={18} color="#B3B3B3" />
-              <Text style={styles.menuLabel}>Autoplay</Text>
-              <Switch
-                value={autoPlay}
-                onValueChange={setAutoPlay}
-                trackColor={{ false: '#333333', true: '#1DB954' }}
-                thumbColor="#FFFFFF"
-              />
-            </View>
-            <View style={styles.menuItem}>
-              <IconSymbol name="waveform" size={18} color="#B3B3B3" />
-              <Text style={styles.menuLabel}>High Quality Audio</Text>
-              <View style={styles.premiumTag}>
-                <Text style={styles.premiumTagText}>PREMIUM</Text>
-              </View>
-              <Switch
-                value={highQuality}
-                onValueChange={setHighQuality}
-                disabled
-                trackColor={{ false: '#333333', true: '#1DB954' }}
-                thumbColor="#FFFFFF"
-              />
-            </View>
-          </View>
-        </View>
-
-        {/* About */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>About</Text>
-          <View style={styles.menuCard}>
-            <Pressable style={[styles.menuItem, styles.menuItemBorder]}>
-              <IconSymbol name="info.circle" size={18} color="#B3B3B3" />
-              <Text style={styles.menuLabel}>About BELENTANI</Text>
-              <IconSymbol name="chevron.right" size={16} color="#B3B3B3" />
-            </Pressable>
-            <View style={styles.menuItem}>
-              <IconSymbol name="checkmark.circle.fill" size={18} color="#1DB954" />
-              <Text style={styles.menuLabel}>Version</Text>
-              <Text style={styles.menuValue}>1.0.0</Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={{ height: 40 }} />
+        </Section>
       </ScrollView>
     </ScreenContainer>
   );
 }
 
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return <View style={styles.section}><Text style={styles.sectionTitle}>{title}</Text><View style={styles.card}>{children}</View></View>;
+}
+
+function Capability({ icon, title, description, state, warning = false }: { icon: 'shield.fill' | 'lock.fill' | 'waveform' | 'bell.fill' | 'dollarsign.circle.fill'; title: string; description: string; state: string; warning?: boolean }) {
+  return <View style={styles.capability}><View style={[styles.iconBox, warning && styles.iconBoxWarning]}><IconSymbol name={icon} size={18} color={warning ? '#FCA5A5' : '#A78BFA'} /></View><View style={styles.capabilityCopy}><Text style={styles.capabilityTitle}>{title}</Text><Text style={styles.capabilityBody}>{description}</Text><Text style={[styles.state, warning && styles.stateWarning]}>{state}</Text></View></View>;
+}
+
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
+  scrollContent: { paddingBottom: 36 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 },
   backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  title: { flex: 1, color: '#FFFFFF', fontSize: 18, fontWeight: '700', textAlign: 'center' },
+  title: { flex: 1, color: '#FFFFFF', fontSize: 18, fontWeight: '800', textAlign: 'center' },
   section: { paddingHorizontal: 20, marginTop: 24 },
-  sectionTitle: { color: '#B3B3B3', fontSize: 12, fontWeight: '700', letterSpacing: 1, marginBottom: 10 },
-  menuCard: { backgroundColor: '#1E1E1E', borderRadius: 14, overflow: 'hidden' },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    gap: 14,
-  },
-  menuItemBorder: { borderBottomWidth: 0.5, borderBottomColor: '#333333' },
-  menuLabel: { flex: 1, color: '#FFFFFF', fontSize: 15 },
-  menuValue: { color: '#B3B3B3', fontSize: 14 },
-  freeBadge: {
-    backgroundColor: '#1E1E1E',
-    borderWidth: 1,
-    borderColor: '#333333',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  freeBadgeText: { color: '#B3B3B3', fontSize: 10, fontWeight: '700' },
-  premiumTag: {
-    backgroundColor: '#FFD700',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  premiumTagText: { color: '#121212', fontSize: 9, fontWeight: '700' },
+  sectionTitle: { color: '#A78BFA', fontSize: 10, fontWeight: '800', letterSpacing: 1.3, marginBottom: 9 },
+  card: { borderRadius: 15, overflow: 'hidden', backgroundColor: '#18181D', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
+  capability: { flexDirection: 'row', gap: 12, padding: 15, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
+  iconBox: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(167,139,250,0.12)' },
+  iconBoxWarning: { backgroundColor: 'rgba(127,29,29,0.2)' },
+  capabilityCopy: { flex: 1 },
+  capabilityTitle: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+  capabilityBody: { color: '#9CA3AF', fontSize: 12, lineHeight: 18, marginTop: 3 },
+  state: { color: '#D8B4FE', fontSize: 9, fontWeight: '800', letterSpacing: 0.8, marginTop: 8 },
+  stateWarning: { color: '#FCA5A5' },
+  aboutCard: { padding: 16, borderRadius: 15, backgroundColor: '#18181D', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
+  aboutTitle: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
+  aboutBody: { color: '#D1D5DB', fontSize: 13, lineHeight: 20, marginTop: 8 },
+  version: { color: '#9CA3AF', fontSize: 11, marginTop: 14 },
 });

@@ -20,14 +20,16 @@ export default function HomeScreen() {
           <View style={{ backgroundColor: 'rgba(18, 18, 24, 0.45)', backdropFilter: 'blur(16px)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)', borderRadius: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.37, shadowRadius: 32 }} className="p-4 flex-row items-center">
             <IconSymbol name="sparkles" size={20} color="#c084fc" style={{ marginRight: 12 }} />
             <TextInput
-              placeholder="Describe your vibe..."
+              placeholder="Describe el momento que quieres escuchar…"
               placeholderTextColor="#687076"
               value={vibe}
               onChangeText={setVibe}
+              accessibilityLabel="Describe tu intención musical"
               className="flex-1 text-foreground text-base py-1"
               returnKeyType="done"
             />
-            <TouchableOpacity 
+            <TouchableOpacity
+              accessibilityLabel="Abrir generador de playlists"
               onPress={() => {
                 if (vibe.trim()) {
                   router.push({ pathname: '/(tabs)/discover', params: { prompt: vibe, platform: selectedPlatform, count: playlistCount.toString() } });
@@ -42,13 +44,15 @@ export default function HomeScreen() {
 
         {/* Platforms Bar (Discrete Under Tab) */}
         <View className="mb-6">
-          <Text className="text-xs text-muted mb-2 uppercase tracking-widest font-semibold">Available on</Text>
+          <Text className="text-xs text-muted mb-2 uppercase tracking-widest font-semibold">Preferencia de destino</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row gap-2">
             {platforms.map((p) => {
               const active = selectedPlatform === p;
               return (
                 <TouchableOpacity
                   key={p}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: active }}
                   onPress={() => setSelectedPlatform(p)}
                   style={{
                     backgroundColor: active ? 'rgba(192, 132, 252, 0.15)' : 'rgba(18, 18, 24, 0.3)',
@@ -67,6 +71,7 @@ export default function HomeScreen() {
               );
             })}
           </ScrollView>
+          <Text className="text-xs text-muted mt-2 leading-5">La conexión y exportación a plataformas se habilitará cuando cada proveedor esté verificado. Esta selección solo conserva tu preferencia.</Text>
         </View>
 
         {/* Playlist Count Expandable */}
@@ -107,8 +112,8 @@ export default function HomeScreen() {
                 <IconSymbol name="shield.fill" size={20} color="#c084fc" />
               </View>
               <View>
-                <Text className="text-foreground font-bold text-base">Executive Council & PVC-U</Text>
-                <Text className="text-muted text-xs">Autonomous agents & immutable ledger</Text>
+                <Text className="text-foreground font-bold text-base">Gobierno HARMONÍA</Text>
+                <Text className="text-muted text-xs">Análisis, permisos y ledger PVC-U con control de owner</Text>
               </View>
             </View>
             <IconSymbol name="chevron.right" size={16} color="#9BA1A6" />

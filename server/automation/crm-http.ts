@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
-import { automationJobs, automationRuns, crmContacts } from "../../drizzle/schema";
+import { automationJobs, automationRuns, councilAuditLogs, councilControls, crmContacts, pvcuLedgerRecords } from "../../drizzle/schema";
 import { sdk } from "../_core/sdk";
 import { getDb } from "../db";
 import { executeAutomationJob } from "./worker";
@@ -13,6 +13,14 @@ async function requireUser(req: Request, res: Response) {
     res.status(401).json({ error: "authentication_required" });
     return null;
   }
+}
+
+function requireAdmin(user: Awaited<ReturnType<typeof sdk.authenticateRequest>> | null, res: Response) {
+  if (!user || user.role !== "admin") {
+    res.status(403).json({ error: "admin_required" });
+    return false;
+  }
+  return true;
 }
 
 function sendServerError(res: Response, error: unknown) {
@@ -94,6 +102,46 @@ export function registerCrmRoutes(app: Express) {
       if (!job) return res.status(404).json({ error: "job_not_found" });
       const result = await executeAutomationJob({ jobId, idempotencyKey: `crm:${user.id}:${jobId}:${Date.now()}` });
       res.json(result);
+    } catch (error) {
+      sendServerError(res, error);
+    }
+  });
+
+  app.get("/api/crm/governance", async (req, res) => {
+    const user = await requireUser(req, res);
+    if (!user || !requireAdmin(user, res)) return;
+    try {
+      const db = await getDb();
+      if (!db) return res.status(503).json({ error: "database_unavailable" });
+      const control = (await db.select().from(councilControls).where(eq(councilControls.userId, user.id)).limit(1))[0];
+      const [auditLogs, ledger] = await Promise.all([
+        db.select().from(councilAuditLogs).where(eq(councilAuditLogs.userId, user.id)).orderBy(desc(councilAuditLogs.createdAt)).limit(30),
+        db.select().from(pvcuLedgerRecords).orderBy(desc(pvcuLedgerRecords.sequenceId)).limit(30),
+      ]);
+      res.json({ killSwitchActive: control?.killSwitchActive === 1, updatedAt: control?.updatedAt ?? null, auditLogs, ledger });
+    } catch (error) {
+      sendServerError(res, error);
+    }
+  });
+
+  app.post("/api/crm/governance/kill-switch", async (req, res) => {
+    const user = await requireUser(req, res);
+    if (!user || !requireAdmin(user, res)) return;
+    const parsed = z.object({ active: z.boolean(), reason: z.string().trim().min(3).max(500) }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "invalid_kill_switch_request", details: parsed.error.flatten() });
+    try {
+      const db = await getDb();
+      if (!db) return res.status(503).json({ error: "database_unavailable" });
+      await db.insert(councilControls).values({ userId: user.id, killSwitchActive: parsed.data.active ? 1 : 0, updatedByUserId: user.id }).onDuplicateKeyUpdate({
+        set: { killSwitchActive: parsed.data.active ? 1 : 0, updatedByUserId: user.id },
+      });
+      await db.insert(councilAuditLogs).values({
+        userId: user.id,
+        actorUserId: user.id,
+        eventType: parsed.data.active ? "council.kill_switch.activated" : "council.kill_switch.released",
+        details: { reason: parsed.data.reason, source: "crm" },
+      });
+      res.json({ success: true, active: parsed.data.active });
     } catch (error) {
       sendServerError(res, error);
     }

@@ -10,7 +10,6 @@ import { getDb } from "../db";
  * platform session; request-body values are intentionally ignored for lookup.
  */
 export async function handleAutomationHeartbeat(req: Request, res: Response) {
-  const context = { url: req.originalUrl, timestamp: new Date().toISOString() };
   try {
     const user = await sdk.authenticateRequest(req);
     if (!user.isCron || !user.taskUid) {
@@ -39,10 +38,16 @@ export async function handleAutomationHeartbeat(req: Request, res: Response) {
     });
     res.json({ ok: true, result });
   } catch (error) {
-    res.status(500).json({
-      error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-      context,
-    });
+    const message = error instanceof Error ? error.message : String(error);
+    if (/session|auth|token|cron/i.test(message)) {
+      res.status(401).json({ error: "authentication_required" });
+      return;
+    }
+    if (message.includes("DATABASE_URL")) {
+      res.status(503).json({ error: "database_unavailable" });
+      return;
+    }
+    console.error("[automation-callback] execution failed", { path: req.path, message });
+    res.status(500).json({ error: "automation_execution_failed" });
   }
 }

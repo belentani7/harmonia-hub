@@ -1,254 +1,62 @@
-import React, { useState } from 'react';
-import {
-  View, Text, Pressable, ScrollView, StyleSheet, Alert,
-} from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
-import { ScreenContainer } from '@/components/screen-container';
+
 import { IconSymbol } from '@/components/ui/icon-symbol';
-
-type Plan = 'free' | 'premium' | 'creator';
-
-const PLANS = [
-  {
-    id: 'free' as Plan,
-    name: 'Free',
-    price: '$0',
-    period: 'forever',
-    color: '#B3B3B3',
-    features: [
-      { text: 'AI Playlist Generation (3/day)', included: true },
-      { text: 'Mood & Context Detection', included: true },
-      { text: 'Basic Analytics', included: true },
-      { text: 'Lyrics', included: false },
-      { text: 'Offline Downloads', included: false },
-      { text: 'Unlimited AI Playlists', included: false },
-      { text: 'Artist Marketplace Access', included: false },
-    ],
-  },
-  {
-    id: 'premium' as Plan,
-    name: 'Premium',
-    price: '$4.99',
-    period: 'per month',
-    color: '#1DB954',
-    badge: 'MOST POPULAR',
-    features: [
-      { text: 'Unlimited AI Playlist Generation', included: true },
-      { text: 'Mood & Context Detection', included: true },
-      { text: 'Full Analytics Dashboard', included: true },
-      { text: 'Lyrics with Karaoke Mode', included: true },
-      { text: 'Offline Downloads (1000 tracks)', included: true },
-      { text: 'Priority AI Processing', included: true },
-      { text: 'Artist Marketplace Access', included: false },
-    ],
-  },
-  {
-    id: 'creator' as Plan,
-    name: 'Creator',
-    price: '$14.99',
-    period: 'per month',
-    color: '#FFD700',
-    badge: 'FOR ARTISTS',
-    features: [
-      { text: 'Everything in Premium', included: true },
-      { text: 'Artist Marketplace Listing', included: true },
-      { text: 'Revenue Share Program', included: true },
-      { text: 'Advanced Analytics & Insights', included: true },
-      { text: 'Custom AI Playlist Branding', included: true },
-      { text: 'Direct Fan Messaging', included: true },
-      { text: 'Priority Council Support', included: true },
-    ],
-  },
-];
+import { ScreenContainer } from '@/components/screen-container';
 
 export default function SubscriptionScreen() {
-  const [selectedPlan, setSelectedPlan] = useState<Plan>('premium');
-
-  const handleSubscribe = () => {
-    if (selectedPlan === 'free') {
-      router.back();
-      return;
-    }
-    Alert.alert(
-      'Coming Soon',
-      `${PLANS.find(p => p.id === selectedPlan)?.name} subscription will be available at launch. You'll be notified!`,
-      [{ text: 'OK', onPress: () => router.back() }],
-    );
-  };
-
   return (
-    <ScreenContainer containerClassName="bg-[#121212]" edges={['top', 'left', 'right']}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {/* Header */}
+    <ScreenContainer containerClassName="bg-[#0A0A0E]" edges={['top', 'left', 'right']}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Pressable
-            onPress={() => router.back()}
-            style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.6 }]}
-          >
-            <IconSymbol name="arrow.left" size={24} color="#FFFFFF" />
-          </Pressable>
-          <Text style={styles.title}>Choose Your Plan</Text>
-          <View style={{ width: 40 }} />
+          <Pressable accessibilityLabel="Volver" onPress={() => router.back()} style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.6 }]}><IconSymbol name="arrow.left" size={22} color="#FFFFFF" /></Pressable>
+          <Text style={styles.headerTitle}>Acceso y planes</Text>
+          <View style={styles.backBtn} />
         </View>
 
-        {/* Hero */}
         <View style={styles.hero}>
-          <IconSymbol name="crown.fill" size={36} color="#FFD700" />
-          <Text style={styles.heroTitle}>Unlock the Full BELENTANI Experience</Text>
-          <Text style={styles.heroSubtitle}>
-            Unlimited AI playlists, lyrics, downloads, and the full Executive Council at your service.
-          </Text>
+          <View style={styles.heroIcon}><IconSymbol name="shield.fill" size={32} color="#A78BFA" /></View>
+          <Text style={styles.title}>Sin pagos activos</Text>
+          <Text style={styles.subtitle}>BELENTANI no procesa cobros ni promete beneficios de plan mientras no exista un proveedor de pagos y entitlements verificados.</Text>
         </View>
 
-        {/* Plans */}
-        {PLANS.map(plan => (
-          <Pressable
-            key={plan.id}
-            onPress={() => setSelectedPlan(plan.id)}
-            style={({ pressed }) => [
-              styles.planCard,
-              { borderColor: plan.color },
-              selectedPlan === plan.id && { backgroundColor: plan.color + '15' },
-              pressed && { opacity: 0.9 },
-            ]}
-          >
-            {plan.badge && (
-              <View style={[styles.planBadge, { backgroundColor: plan.color }]}>
-                <Text style={styles.planBadgeText}>{plan.badge}</Text>
-              </View>
-            )}
-
-            <View style={styles.planHeader}>
-              <View style={styles.planRadio}>
-                <View style={[
-                  styles.planRadioInner,
-                  selectedPlan === plan.id && { backgroundColor: plan.color },
-                ]} />
-              </View>
-              <View style={styles.planInfo}>
-                <Text style={[styles.planName, { color: plan.color }]}>{plan.name}</Text>
-                <View style={styles.planPriceRow}>
-                  <Text style={styles.planPrice}>{plan.price}</Text>
-                  <Text style={styles.planPeriod}> / {plan.period}</Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.planFeatures}>
-              {plan.features.map((feature, i) => (
-                <View key={i} style={styles.featureRow}>
-                  <IconSymbol
-                    name={feature.included ? 'checkmark.circle.fill' : 'xmark.circle'}
-                    size={16}
-                    color={feature.included ? plan.color : '#444444'}
-                  />
-                  <Text style={[
-                    styles.featureText,
-                    !feature.included && styles.featureTextDisabled,
-                  ]}>
-                    {feature.text}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </Pressable>
-        ))}
-
-        {/* CTA */}
-        <View style={styles.ctaContainer}>
-          <Pressable
-            onPress={handleSubscribe}
-            style={({ pressed }) => [
-              styles.ctaBtn,
-              { backgroundColor: PLANS.find(p => p.id === selectedPlan)?.color || '#1DB954' },
-              pressed && { transform: [{ scale: 0.97 }] },
-            ]}
-          >
-            <Text style={styles.ctaBtnText}>
-              {selectedPlan === 'free'
-                ? 'Continue with Free'
-                : `Subscribe to ${PLANS.find(p => p.id === selectedPlan)?.name}`}
-            </Text>
-          </Pressable>
-          <Text style={styles.ctaNote}>
-            Cancel anytime · No hidden fees · Secure payment
-          </Text>
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Estado actual</Text>
+          <Feature icon="checkmark.circle.fill" text="Generación de playlists con IA, cuando el proveedor está disponible" positive />
+          <Feature icon="checkmark.circle.fill" text="Biblioteca local de playlists, favoritos e historial" positive />
+          <Feature icon="xmark.circle" text="Cobros, recibos y suscripciones" />
+          <Feature icon="xmark.circle" text="Descargas, letras y catálogos con licencia" />
+          <Feature icon="xmark.circle" text="Feature gates o derechos de plan" />
         </View>
 
-        <View style={{ height: 40 }} />
+        <View style={styles.notice}>
+          <Text style={styles.noticeTitle}>Qué falta para activar planes</Text>
+          <Text style={styles.noticeBody}>Un proveedor de pagos, tablas de entitlements, verificaciones del servidor y una política de privacidad y facturación revisadas. Hasta entonces, la aplicación no mostrará precios ni botones de compra.</Text>
+        </View>
       </ScrollView>
     </ScreenContainer>
   );
 }
 
+function Feature({ icon, text, positive = false }: { icon: 'checkmark.circle.fill' | 'xmark.circle'; text: string; positive?: boolean }) {
+  return <View style={styles.feature}><IconSymbol name={icon} size={18} color={positive ? '#A78BFA' : '#6B7280'} /><Text style={[styles.featureText, !positive && styles.featurePending]}>{text}</Text></View>;
+}
+
 const styles = StyleSheet.create({
-  scrollContent: { paddingBottom: 20 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
+  content: { paddingBottom: 36 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 },
   backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  title: { flex: 1, color: '#FFFFFF', fontSize: 18, fontWeight: '700', textAlign: 'center' },
-  hero: {
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 20,
-    gap: 10,
-  },
-  heroTitle: { color: '#FFFFFF', fontSize: 22, fontWeight: '800', textAlign: 'center', lineHeight: 30 },
-  heroSubtitle: { color: '#B3B3B3', fontSize: 14, textAlign: 'center', lineHeight: 22 },
-  planCard: {
-    marginHorizontal: 16,
-    marginBottom: 14,
-    backgroundColor: '#1E1E1E',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1.5,
-    position: 'relative',
-  },
-  planBadge: {
-    position: 'absolute',
-    top: -10,
-    right: 16,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  planBadgeText: { color: '#121212', fontSize: 10, fontWeight: '700', letterSpacing: 1 },
-  planHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
-  planRadio: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
-    borderColor: '#B3B3B3',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  planRadioInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: 'transparent',
-  },
-  planInfo: { flex: 1 },
-  planName: { fontSize: 16, fontWeight: '700' },
-  planPriceRow: { flexDirection: 'row', alignItems: 'baseline', marginTop: 2 },
-  planPrice: { color: '#FFFFFF', fontSize: 22, fontWeight: '800' },
-  planPeriod: { color: '#B3B3B3', fontSize: 13 },
-  planFeatures: { gap: 8 },
-  featureRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  featureText: { color: '#FFFFFF', fontSize: 13, flex: 1 },
-  featureTextDisabled: { color: '#444444' },
-  ctaContainer: { paddingHorizontal: 16, marginTop: 8, gap: 12, alignItems: 'center' },
-  ctaBtn: {
-    width: '100%',
-    paddingVertical: 16,
-    borderRadius: 30,
-    alignItems: 'center',
-  },
-  ctaBtnText: { color: '#121212', fontSize: 16, fontWeight: '700' },
-  ctaNote: { color: '#666666', fontSize: 12 },
+  headerTitle: { flex: 1, color: '#FFFFFF', fontSize: 18, fontWeight: '800', textAlign: 'center' },
+  hero: { alignItems: 'center', paddingHorizontal: 28, paddingTop: 28, paddingBottom: 26 },
+  heroIcon: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(167,139,250,0.12)', borderWidth: 1, borderColor: 'rgba(167,139,250,0.25)' },
+  title: { color: '#FFFFFF', fontSize: 25, fontWeight: '800', marginTop: 16 },
+  subtitle: { color: '#D1D5DB', fontSize: 14, lineHeight: 21, textAlign: 'center', marginTop: 8 },
+  card: { marginHorizontal: 20, borderRadius: 16, padding: 16, backgroundColor: '#18181D', borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
+  cardTitle: { color: '#FFFFFF', fontSize: 15, fontWeight: '800', marginBottom: 12 },
+  feature: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 7 },
+  featureText: { flex: 1, color: '#FFFFFF', fontSize: 13, lineHeight: 19 },
+  featurePending: { color: '#9CA3AF' },
+  notice: { marginHorizontal: 20, marginTop: 16, padding: 15, borderRadius: 15, backgroundColor: 'rgba(109,40,217,0.12)', borderWidth: 1, borderColor: 'rgba(167,139,250,0.22)' },
+  noticeTitle: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
+  noticeBody: { color: '#D1D5DB', fontSize: 12, lineHeight: 19, marginTop: 6 },
 });
