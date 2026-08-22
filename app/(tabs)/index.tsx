@@ -14,7 +14,7 @@ export default function HomeScreen() {
 
   return (
     <ScreenContainer className="px-4 py-6">
-      <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
         {/* Top Minimal AI Input */}
         <View className="mb-6">
           <View style={{ backgroundColor: 'rgba(18, 18, 24, 0.45)', backdropFilter: 'blur(16px)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)', borderRadius: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.37, shadowRadius: 32 }} className="p-4 flex-row items-center">

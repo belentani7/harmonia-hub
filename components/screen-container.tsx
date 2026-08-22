@@ -54,7 +54,7 @@ export function ScreenContainer({
         "bg-background",
         containerClassName
       )}
-      style={{ backgroundColor: "#08070B" }}
+      style={{ flex: 1, backgroundColor: "#08070B" }}
       {...props}
     >
       <SafeAreaView
