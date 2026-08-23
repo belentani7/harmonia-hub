@@ -17,7 +17,7 @@ export default function HomeScreen() {
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
         {/* Top Minimal AI Input */}
         <View className="mb-6">
-          <View style={{ backgroundColor: 'rgba(18, 18, 24, 0.45)', backdropFilter: 'blur(16px)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)', borderRadius: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.37, shadowRadius: 32 }} className="p-4 flex-row items-center">
+          <View style={{ backgroundColor: 'rgba(18, 18, 24, 0.45)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)', borderRadius: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.37, shadowRadius: 32 }} className="p-4 flex-row items-center">
             <IconSymbol name="sparkles" size={20} color="#c084fc" style={{ marginRight: 12 }} />
             <TextInput
               placeholder="Describe el momento que quieres escuchar…"
