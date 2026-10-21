@@ -15,6 +15,11 @@ export default function HomeScreen() {
   return (
     <ScreenContainer className="px-4 py-6">
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+        <View className="mb-8 mt-3">
+          <Text className="text-xs font-bold tracking-widest text-primary mb-3">HARMONÍA / DISCOVERY</Text>
+          <Text className="text-foreground text-4xl font-bold leading-tight mb-3">Tu música. Tu momento.</Text>
+          <Text className="text-muted text-sm leading-6">La selección empieza por lo que sientes. Describe tu intención, elige un estado de ánimo y construye una playlist con contexto.</Text>
+        </View>
         {/* Top Minimal AI Input */}
         <View className="mb-6">
           <View style={{ backgroundColor: 'rgba(18, 18, 24, 0.45)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)', borderRadius: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.37, shadowRadius: 32 }} className="p-4 flex-row items-center">
@@ -31,12 +36,14 @@ export default function HomeScreen() {
             />
             <TouchableOpacity
               accessibilityLabel="Abrir generador de playlists"
+              accessibilityState={{ disabled: !vibe.trim() }}
+              disabled={!vibe.trim()}
               onPress={() => {
                 if (vibe.trim()) {
                   router.push({ pathname: '/(tabs)/discover', params: { prompt: vibe, platform: selectedPlatform, count: playlistCount.toString() } });
                 }
               }}
-              style={{ backgroundColor: '#c084fc', padding: 8, borderRadius: 16 }}
+              style={{ backgroundColor: '#c084fc', padding: 8, borderRadius: 16, opacity: vibe.trim() ? 1 : 0.45 }}
             >
               <IconSymbol name="arrow.right" size={16} color="#151718" />
             </TouchableOpacity>
@@ -78,7 +85,7 @@ export default function HomeScreen() {
         {/* Playlist Count Expandable */}
         <View className="mb-6">
           <View className="flex-row items-center justify-between mb-2">
-            <Text className="text-xs text-muted uppercase tracking-widest font-semibold">Playlists per generation</Text>
+            <Text className="text-xs text-muted uppercase tracking-widest font-semibold">Pistas por playlist</Text>
             <TouchableOpacity onPress={() => setShowCountOptions(!showCountOptions)}>
               <Text className="text-xs text-primary font-bold">{playlistCount} ▾</Text>
             </TouchableOpacity>
