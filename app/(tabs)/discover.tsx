@@ -3,6 +3,7 @@ import {
   View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator, FlatList, Image, Alert,
 } from 'react-native';
 import { ScreenContainer } from '@/components/screen-container';
+import { useLocalSearchParams } from 'expo-router';
 import { GlassCard } from '@/components/glass-card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { TrackRow } from '@/components/track-row';
@@ -25,6 +26,10 @@ const MOODS: { id: Mood; label: string; emoji: string }[] = [
 ];
 
 export default function DiscoverScreen() {
+  const routeParams = useLocalSearchParams<{ prompt?: string; platform?: string; count?: string }>();
+  const listenerIntent = typeof routeParams.prompt === 'string' ? routeParams.prompt.trim().slice(0, 500) : '';
+  const preferredPlatform = typeof routeParams.platform === 'string' ? routeParams.platform.trim().slice(0, 32) : '';
+  const initialTrackCount = Number(routeParams.count);
   const { playTrack, openPlayer } = usePlayer();
   const { savePlaylist } = useLibrary();
   const [selectedMood, setSelectedMood] = useState<Mood | null>(null);
@@ -32,7 +37,10 @@ export default function DiscoverScreen() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [creativity, setCreativity] = useState<'high' | 'low'>('high');
   const [strictMode, setStrictMode] = useState(false);
-  const [trackCount, setTrackCount] = useState(8);
+  const [trackCount, setTrackCount] = useState(
+    Number.isInteger(initialTrackCount) && initialTrackCount >= 4 && initialTrackCount <= 20
+      ? initialTrackCount : 8
+  );
 
   const generateMutation = trpc.playlist.generate.useMutation({
     onSuccess: (data: any) => {
@@ -57,6 +65,7 @@ export default function DiscoverScreen() {
         trackCount,
         creativity,
         strictMode,
+        listenerIntent: listenerIntent || undefined,
       });
     } catch (error) {
       console.error('Mutation error:', error);
@@ -79,6 +88,8 @@ export default function DiscoverScreen() {
           <View style={styles.header}>
             <Text style={styles.title}>AI Generator</Text>
           <Text style={styles.subtitle}>Define tu intención; la IA explicará cada selección.</Text>
+          {listenerIntent ? <Text style={styles.intentLabel}>Tu intención: {listenerIntent}</Text> : null}
+          {preferredPlatform ? <Text style={styles.subtitle}>Destino preferido: {preferredPlatform} · La exportación externa no está conectada.</Text> : null}
           </View>
 
           {/* Mood Grid */}
@@ -270,6 +281,7 @@ const styles = StyleSheet.create({
   scrollContent: { paddingBottom: 20 },
 
   header: { paddingHorizontal: 16, paddingVertical: 16, gap: 4 },
+  intentLabel: { color: GLASS_COLORS.textPrimary, fontSize: 13, lineHeight: 20, marginTop: 8 },
   title: { color: GLASS_COLORS.textPrimary, fontSize: 24, fontWeight: '800' },
   subtitle: { color: GLASS_COLORS.textMuted, fontSize: 14 },
 
