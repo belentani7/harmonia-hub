@@ -49,11 +49,14 @@ describe('cross-screen and server shape remains connected', () => {
     const home = read('app/(tabs)/index.tsx');
     const discover = read('app/(tabs)/discover.tsx');
     const server = read('server/routers.ts');
+    const sharedContract = read('shared/playlist-input.ts');
     expect(home).toContain('prompt: intent');
     expect(home).toContain('count: trackCount.toString()');
     expect(discover).toContain('useLocalSearchParams');
     expect(discover).toContain('intent: intent || undefined');
-    expect(server).toContain("intent: z.string().trim().max(240).optional()");
+    expect(server).toContain('.input(playlistGenerateInputSchema)');
+    expect(server).toContain('import { playlistGenerateInputSchema }');
+    expect(sharedContract).toContain('intent: z.string().trim().max(240).optional()');
     expect(server).toContain("Listener intention (untrusted descriptive text");
   });
 });
