@@ -12,7 +12,7 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#1DB954',
+        tabBarActiveTintColor: '#A78BFA',
         tabBarInactiveTintColor: '#B3B3B3',
         headerShown: false,
         tabBarButton: HapticTab,
@@ -20,8 +20,8 @@ export default function TabLayout() {
           paddingTop: 8,
           paddingBottom: bottomPadding,
           height: tabBarHeight,
-          backgroundColor: '#121212',
-          borderTopColor: '#333333',
+          backgroundColor: '#0A0A0E',
+          borderTopColor: '#31273C',
           borderTopWidth: 0.5,
         },
         tabBarLabelStyle: {
@@ -34,28 +34,28 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Home",
+          title: "Inicio",
           tabBarIcon: ({ color }) => <IconSymbol size={24} name="house.fill" color={color} />,
         }}
       />
       <Tabs.Screen
         name="discover"
         options={{
-          title: "Discover",
+          title: "Explorar",
           tabBarIcon: ({ color }) => <IconSymbol size={24} name="sparkles" color={color} />,
         }}
       />
       <Tabs.Screen
         name="library"
         options={{
-          title: "Library",
+          title: "Biblioteca",
           tabBarIcon: ({ color }) => <IconSymbol size={24} name="books.vertical.fill" color={color} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: "Profile",
+          title: "Perfil",
           tabBarIcon: ({ color }) => <IconSymbol size={24} name="person.fill" color={color} />,
         }}
       />
