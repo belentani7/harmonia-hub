@@ -49,6 +49,7 @@ jobs:
           tests/harmonia.durable.test.ts
           tests/fullstack.integration.test.ts
           tests/playlist.validation.test.ts
+          tests/music-intent.test.ts
           tests/security.core.test.ts
           --pool=forks
           --poolOptions.forks.singleFork=true
