@@ -7,7 +7,7 @@ import { useRouter } from 'expo-router';
 export default function HomeScreen() {
   const router = useRouter();
   const [vibe, setVibe] = useState('');
-  const [playlistCount, setPlaylistCount] = useState(3);
+  const [playlistCount, setPlaylistCount] = useState(8);
   const [showCountOptions, setShowCountOptions] = useState(false);
   const platforms = ['Spotify', 'iTunes', 'Apple Music', 'Deezer', 'Tidal', 'Amazon Music'];
   const [selectedPlatform, setSelectedPlatform] = useState('Spotify');
@@ -24,6 +24,7 @@ export default function HomeScreen() {
               placeholderTextColor="#687076"
               value={vibe}
               onChangeText={setVibe}
+              maxLength={500}
               accessibilityLabel="Describe tu intención musical"
               className="flex-1 text-foreground text-base py-1"
               returnKeyType="done"
@@ -84,7 +85,7 @@ export default function HomeScreen() {
           </View>
           {showCountOptions && (
             <View style={{ backgroundColor: 'rgba(18, 18, 24, 0.6)', borderColor: 'rgba(255, 255, 255, 0.08)', borderWidth: 1, borderRadius: 16 }} className="p-3 flex-row justify-around">
-              {[1, 3, 5, 10].map((num) => (
+              {[4, 8, 12, 20].map((num) => (
                 <TouchableOpacity
                   key={num}
                   onPress={() => {
