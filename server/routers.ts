@@ -1,6 +1,6 @@
 import { parse as parseCookie } from "cookie";
 import { z } from "zod";
-import { normalizeIntent } from '@/shared/music-intent';
+import { normalizeIntent } from '../shared/music-intent';
 import { and, desc, eq } from "drizzle-orm";
 import { router, adminProcedure, protectedProcedure, publicProcedure } from "./_core/trpc";
 import { invokeLLM, type Message } from "./_core/llm";
