@@ -1,86 +1,53 @@
-import { describe, it, expect } from 'vitest';
-import { z } from 'zod';
+import { describe, it, expect } from "vitest";
+import { playlistGenerateInputSchema } from "../shared/playlist-input";
 
-// Test the input validation schema directly
-const playlistInputSchema = z.object({
-  mood: z.enum(['focus', 'chill', 'energy', 'sad', 'party', 'sleep', 'romantic', 'workout']),
-  context: z.enum(['work', 'gym', 'sleep', 'drive', 'study', 'party', 'meditation']).optional(),
-  genres: z.array(z.string()).optional(),
-  trackCount: z.number().min(4).max(20).default(8),
-});
-
-describe('Playlist Input Validation', () => {
-  it('should accept valid mood values', () => {
-    const validMoods = ['focus', 'chill', 'energy', 'sad', 'party', 'sleep', 'romantic', 'workout'];
-    
-    validMoods.forEach(mood => {
-      const result = playlistInputSchema.safeParse({
-        mood,
+describe("Playlist generation input — actual API schema", () => {
+  it("accepts the homepage choices and forwards a listener intention", () => {
+    for (const trackCount of [4, 8, 12, 20]) {
+      const parsed = playlistGenerateInputSchema.safeParse({
+        mood: "focus",
+        trackCount,
+        listenerIntent: "  Calma para estudiar de noche  ",
       });
-      expect(result.success).toBe(true);
-    });
-  });
-
-  it('should reject invalid mood values', () => {
-    const result = playlistInputSchema.safeParse({
-      mood: 'invalid',
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it('should accept valid context values', () => {
-    const result = playlistInputSchema.safeParse({
-      mood: 'focus',
-      context: 'work',
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it('should make context optional', () => {
-    const result = playlistInputSchema.safeParse({
-      mood: 'focus',
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it('should enforce trackCount minimum of 4', () => {
-    const result = playlistInputSchema.safeParse({
-      mood: 'focus',
-      trackCount: 3,
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it('should enforce trackCount maximum of 20', () => {
-    const result = playlistInputSchema.safeParse({
-      mood: 'focus',
-      trackCount: 21,
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it('should use default trackCount of 8', () => {
-    const result = playlistInputSchema.safeParse({
-      mood: 'focus',
-    });
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.trackCount).toBe(8);
+      expect(parsed.success).toBe(true);
+      if (parsed.success) {
+        expect(parsed.data.trackCount).toBe(trackCount);
+        expect(parsed.data.listenerIntent).toBe("Calma para estudiar de noche");
+      }
     }
   });
 
-  it('should accept array of genres', () => {
-    const result = playlistInputSchema.safeParse({
-      mood: 'focus',
-      genres: ['electronic', 'indie', 'pop'],
-    });
-    expect(result.success).toBe(true);
+  it("applies defaults used by the discovery screen", () => {
+    const parsed = playlistGenerateInputSchema.parse({ mood: "chill" });
+    expect(parsed.trackCount).toBe(8);
+    expect(parsed.creativity).toBe("high");
+    expect(parsed.strictMode).toBe(false);
   });
 
-  it('should make genres optional', () => {
-    const result = playlistInputSchema.safeParse({
-      mood: 'focus',
-    });
-    expect(result.success).toBe(true);
+  it("rejects impossible counts and maliciously large input", () => {
+    for (const count of [0, 3, 21, NaN, 8.5]) {
+      expect(playlistGenerateInputSchema.safeParse({ mood: "focus", trackCount: count }).success).toBe(false);
+    }
+    expect(playlistGenerateInputSchema.safeParse({
+      mood: "focus",
+      listenerIntent: "x".repeat(501),
+    }).success).toBe(false);
+  });
+
+  it("rejects invalid moods and very long genre terms", () => {
+    expect(playlistGenerateInputSchema.safeParse({ mood: "unknown" }).success).toBe(false);
+    expect(playlistGenerateInputSchema.safeParse({
+      mood: "energy",
+      genres: ["a".repeat(65)],
+    }).success).toBe(false);
+  });
+
+  it("accepts valid listener context and optional genres", () => {
+    expect(playlistGenerateInputSchema.safeParse({
+      mood: "party",
+      context: "drive",
+      genres: ["dance", "pop"],
+      trackCount: 10,
+    }).success).toBe(true);
   });
 });
