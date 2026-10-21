@@ -143,7 +143,7 @@ function DiscoverExperience({ intent, requestedPlatform, initialCount }: {
             />
               <Text style={styles.advancedLabel}>Ajustes de generación</Text>
             <View style={styles.advancedBadge}>
-              <Text style={styles.advancedBadgeText}>Pro</Text>
+              <Text style={styles.advancedBadgeText}>Opcional</Text>
             </View>
           </Pressable>
 
@@ -251,7 +251,7 @@ function DiscoverExperience({ intent, requestedPlatform, initialCount }: {
                   <Text style={styles.playlistDescription} numberOfLines={2}>
                     {generatedPlaylist.description}
                   </Text>
-                  <Text style={styles.playlistCount}>{generatedPlaylist.tracks.length} tracks</Text>
+                  <Text style={styles.playlistCount}>{generatedPlaylist.tracks.length} pistas · Sugerencias IA, catálogo no verificado</Text>
                 </View>
               </View>
 
