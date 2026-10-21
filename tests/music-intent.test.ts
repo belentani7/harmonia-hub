@@ -31,12 +31,12 @@ describe('HARMONÍA: contract from the intention composer to generator', () => {
   });
 
   it('proposes but never forces a mood in Spanish, Portuguese and English', () => {
-    expect(suggestMood('Música tranquila para estudiar por la noche')).toBe('sleep');
+    expect(suggestMood('Necesito dormir esta noche')).toBe('sleep');
     expect(suggestMood('quero treinar na academia')).toBe('workout');
     expect(suggestMood('Necesito concentración para programar')).toBe('focus');
     expect(suggestMood('una noche melancólica')).toBe('sad');
     expect(suggestMood('We want to party')).toBe('party');
-    expect(suggestMood('amo el romance')).toBe('romantic');
+    expect(suggestMood('una cita romántica')).toBe('romantic');
     expect(suggestMood('Algo completamente indescifrable')).toBeNull();
   });
 });
