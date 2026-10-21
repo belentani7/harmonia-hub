@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useLocalSearchParams } from 'expo-router';
-import { normalizeIntent, normalizePlatform, normalizeTrackCount, suggestMood } from '@/shared/music-intent';
+import { normalizeIntent, normalizePlatform, normalizeTrackCount, suggestMood, type PlatformPreference } from '@/shared/music-intent';
 import {
   View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator, FlatList, Image, Alert,
 } from 'react-native';
@@ -30,6 +30,17 @@ export default function DiscoverScreen() {
   const params = useLocalSearchParams<{ prompt?: string; platform?: string; count?: string }>();
   const intent = normalizeIntent(params.prompt);
   const requestedPlatform = normalizePlatform(params.platform);
+  const initialCount = normalizeTrackCount(params.count);
+  // A new intention remounts only this experience, not the application shell.
+  const key = [intent, requestedPlatform ?? '', initialCount].join('|');
+  return <DiscoverExperience key={key} intent={intent} requestedPlatform={requestedPlatform} initialCount={initialCount} />;
+}
+
+function DiscoverExperience({ intent, requestedPlatform, initialCount }: {
+  intent: string;
+  requestedPlatform: PlatformPreference | null;
+  initialCount: number;
+}) {
   const { playTrack, openPlayer } = usePlayer();
   const { savePlaylist } = useLibrary();
   const [selectedMood, setSelectedMood] = useState<Mood | null>(() => suggestMood(intent));
@@ -37,14 +48,7 @@ export default function DiscoverScreen() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [creativity, setCreativity] = useState<'high' | 'low'>('high');
   const [strictMode, setStrictMode] = useState(false);
-  const [trackCount, setTrackCount] = useState(() => normalizeTrackCount(params.count));
-  // A tab route may already be mounted when a second intent arrives from Home.
-  useEffect(() => {
-    if (!intent) return;
-    setSelectedMood(suggestMood(intent));
-    setTrackCount(normalizeTrackCount(params.count));
-    setGeneratedPlaylist(null);
-  }, [intent, params.count]);
+  const [trackCount, setTrackCount] = useState(initialCount);
 
   const generateMutation = trpc.playlist.generate.useMutation({
     onSuccess: (data: any) => {
