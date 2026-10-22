@@ -1,3 +1,51 @@
+# HARMONÍA / BELENTANI — Music Intelligence
+
+**Una intención → una selección musical explicable → una revisión humana.**
+
+HARMONÍA es una plataforma musical propia con interfaz móvil Expo/React Native, API Express/tRPC, biblioteca, pantallas de descubrimiento, ledger y gobierno de operaciones. Esta es la implementación original existente: no se ha reescrito con una plantilla ni separado sus módulos en repositorios nuevos.
+
+## Experiencia realmente disponible en código
+
+- **Inicio con marca original:** portada HARMONÍA, texto de intención hasta 240 caracteres, preferencia musical y selección de **4, 8, 12 o 20 pistas por playlist**.
+- **Recorrido reparado:** el texto escrito se entrega a la pantalla de descubrimiento mediante Expo Router, donde permanece visible; una regla local sugiere un mood cuando encuentra coincidencia, pero el usuario puede elegir otro.
+- **API de generación:** `playlist.generate` recibe el campo opcional `intent`, validado y normalizado, y lo usa como descripción musical no confiable junto al mood y número de pistas. Si el proveedor LLM falla, se mantiene un error recuperable.
+- **Biblioteca y gobernanza:** persisten en sus propios módulos y contratos. No se han rebajado roles administrativos.
+- **Transparencia:** las recomendaciones pueden ser ilustrativas y no acreditan un catálogo licenciado. Las plataformas externas son preferencias locales, **no integraciones activas**. Reproducción y pagos requieren proveedores y licencias verificados.
+- **Identidad:** sitio público informativo `docs/index.html` rediseñado para HARMONÍA, paleta nocturna/violeta frío y navegación móvil unificada. Sin cifras ni disponibilidad inventadas.
+
+## Desarrollo y pruebas
+
+Requiere Node 22, pnpm 9.12 y configuración descrita en [entorno y operaciones](docs/environment-and-operations.md).
+
+```bash
+pnpm install --frozen-lockfile
+pnpm check
+pnpm exec eslint app components lib server --ext .ts,.tsx
+pnpm exec vitest run tests/music-intent.test.ts
+pnpm exec vitest run tests/playlist.validation.test.ts tests/security.core.test.ts
+pnpm build
+```
+
+Los módulos `shared/music-intent.ts`, `app/(tabs)/index.tsx`, `app/(tabs)/discover.tsx` y `server/routers.ts` mantienen un contrato comprobable. El nuevo test comprueba límites del texto, destinos permitidos, recuentos compatibles, sugerencia multilingüe y enlaces entre pantallas y API.
+
+La CI debe finalizar **realmente** y la app debe comprobarse en Android/iOS/web y con proveedor configurado. Una ejecución fallida de GitHub Actions sin runner asignado no prueba ni refuta la calidad del código. No declarar APK o lanzamiento público sin evidencia.
+
+## Documentación del producto
+
+- [Sistema de producto](docs/product-system.md)
+- [Manifiesto de entrega](docs/delivery-manifest.md)
+- [Operación y secretos](docs/environment-and-operations.md)
+- [Arquitectura full stack](harmonia_fullstack_architecture.md)
+- [Landing de producto](docs/index.html)
+
+---
+
+## Guía técnica heredada del entorno Expo
+
+La documentación de plantilla original se conserva a continuación como referencia de desarrollo; los contratos de producto actuales están descritos arriba.
+
+---
+
 # Expo Mobile Template
 
 React Native mobile app with **Expo SDK 54**, **TypeScript**, and **React 19**.

@@ -1,5 +1,5 @@
 import type { Express, Request, Response } from "express";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { automationJobs, automationRuns, councilAuditLogs, councilControls, crmContacts, pvcuLedgerRecords } from "../../drizzle/schema";
 import { sdk } from "../_core/sdk";
@@ -24,7 +24,8 @@ function requireAdmin(user: Awaited<ReturnType<typeof sdk.authenticateRequest>> 
 }
 
 function sendServerError(res: Response, error: unknown) {
-  res.status(500).json({ error: error instanceof Error ? error.message : String(error) });
+  console.error("[crm] internal request failed", error);
+  res.status(500).json({ error: "internal_server_error" });
 }
 
 export function registerCrmRoutes(app: Express) {
@@ -83,8 +84,10 @@ export function registerCrmRoutes(app: Express) {
       const jobs = await db.select({ id: automationJobs.id }).from(automationJobs).where(eq(automationJobs.userId, user.id));
       const ids = jobs.map((job) => job.id);
       if (!ids.length) return res.json({ runs: [] });
-      const runs = await db.select().from(automationRuns).orderBy(desc(automationRuns.startedAt));
-      res.json({ runs: runs.filter((run) => ids.includes(run.jobId)) });
+      const runs = await db.select().from(automationRuns)
+        .where(inArray(automationRuns.jobId, ids))
+        .orderBy(desc(automationRuns.startedAt));
+      res.json({ runs });
     } catch (error) {
       sendServerError(res, error);
     }
@@ -114,9 +117,16 @@ export function registerCrmRoutes(app: Express) {
       const db = await getDb();
       if (!db) return res.status(503).json({ error: "database_unavailable" });
       const control = (await db.select().from(councilControls).where(eq(councilControls.userId, user.id)).limit(1))[0];
+      const ownerJobs = await db.select({ id: automationJobs.id }).from(automationJobs)
+        .where(eq(automationJobs.userId, user.id));
+      const ownedWorkflowIds = ownerJobs.map((job) => `automation_${job.id}`);
       const [auditLogs, ledger] = await Promise.all([
         db.select().from(councilAuditLogs).where(eq(councilAuditLogs.userId, user.id)).orderBy(desc(councilAuditLogs.createdAt)).limit(30),
-        db.select().from(pvcuLedgerRecords).orderBy(desc(pvcuLedgerRecords.sequenceId)).limit(30),
+        ownedWorkflowIds.length
+          ? db.select().from(pvcuLedgerRecords)
+              .where(inArray(pvcuLedgerRecords.workflowId, ownedWorkflowIds))
+              .orderBy(desc(pvcuLedgerRecords.sequenceId)).limit(30)
+          : Promise.resolve([]),
       ]);
       res.json({ killSwitchActive: control?.killSwitchActive === 1, updatedAt: control?.updatedAt ?? null, auditLogs, ledger });
     } catch (error) {

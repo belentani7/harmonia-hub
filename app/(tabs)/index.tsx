@@ -3,19 +3,44 @@ import { View, Text, TextInput, TouchableOpacity, ScrollView } from 'react-nativ
 import { ScreenContainer } from '@/components/screen-container';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useRouter } from 'expo-router';
+import { normalizeIntent, TRACK_COUNTS, PREFERRED_PLATFORMS } from '@/shared/music-intent';
 
 export default function HomeScreen() {
   const router = useRouter();
   const [vibe, setVibe] = useState('');
-  const [playlistCount, setPlaylistCount] = useState(3);
+  const [trackCount, setTrackCount] = useState(8);
   const [showCountOptions, setShowCountOptions] = useState(false);
-  const platforms = ['Spotify', 'iTunes', 'Apple Music', 'Deezer', 'Tidal', 'Amazon Music'];
+  const platforms = PREFERRED_PLATFORMS;
   const [selectedPlatform, setSelectedPlatform] = useState('Spotify');
 
   return (
     <ScreenContainer className="px-4 py-6">
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
-        {/* Top Minimal AI Input */}
+        {/* Brand identity: original, functional entrypoint, not an Expo template. */}
+        <View className="mb-9" style={{ gap: 16 }}>
+          <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+            <View style={{
+              backgroundColor: '#24112f', borderColor: '#a78bfa65', borderWidth: 1,
+              width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center',
+            }}>
+              <IconSymbol name="waveform" size={25} color="#C4B5FD" />
+            </View>
+            <View>
+              <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 22, letterSpacing: 2 }}>HARMONÍA</Text>
+              <Text style={{ color: '#B8A4CC', fontSize: 10, letterSpacing: 1.6, marginTop: 2 }}>BELENTANI / MUSIC INTELLIGENCE</Text>
+            </View>
+          </View>
+          <View style={{ paddingVertical: 12 }}>
+            <Text style={{ color: '#FFFFFF', fontSize: 34, lineHeight: 40, letterSpacing: -1.5, fontWeight: '800' }}>
+              Tu intención, organizada en música.
+            </Text>
+            <Text style={{ color: '#B8BBC5', fontSize: 14, lineHeight: 23, marginTop: 12 }}>
+              Convierte una idea en una selección musical explicada. Puedes explorar moods y guardar resultados; escuchar audio requiere una fuente autorizada que todavía no está conectada.
+            </Text>
+          </View>
+        </View>
+
+        {/* Freeform listening intent, forwarded to the real generation contract. */}
         <View className="mb-6">
           <View style={{ backgroundColor: 'rgba(18, 18, 24, 0.45)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)', borderRadius: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.37, shadowRadius: 32 }} className="p-4 flex-row items-center">
             <IconSymbol name="sparkles" size={20} color="#c084fc" style={{ marginRight: 12 }} />
@@ -24,6 +49,7 @@ export default function HomeScreen() {
               placeholderTextColor="#687076"
               value={vibe}
               onChangeText={setVibe}
+              maxLength={240}
               accessibilityLabel="Describe tu intención musical"
               className="flex-1 text-foreground text-base py-1"
               returnKeyType="done"
@@ -31,11 +57,13 @@ export default function HomeScreen() {
             <TouchableOpacity
               accessibilityLabel="Abrir generador de playlists"
               onPress={() => {
-                if (vibe.trim()) {
-                  router.push({ pathname: '/(tabs)/discover', params: { prompt: vibe, platform: selectedPlatform, count: playlistCount.toString() } });
+                const intent = normalizeIntent(vibe);
+                if (intent) {
+                  router.push({ pathname: '/(tabs)/discover', params: { prompt: intent, platform: selectedPlatform, count: trackCount.toString() } });
                 }
               }}
-              style={{ backgroundColor: '#c084fc', padding: 8, borderRadius: 16 }}
+              disabled={!normalizeIntent(vibe)}
+              style={{ backgroundColor: '#c084fc', padding: 11, borderRadius: 16, opacity: normalizeIntent(vibe) ? 1 : 0.4 }}
             >
               <IconSymbol name="arrow.right" size={16} color="#151718" />
             </TouchableOpacity>
@@ -77,23 +105,23 @@ export default function HomeScreen() {
         {/* Playlist Count Expandable */}
         <View className="mb-6">
           <View className="flex-row items-center justify-between mb-2">
-            <Text className="text-xs text-muted uppercase tracking-widest font-semibold">Playlists per generation</Text>
+            <Text className="text-xs text-muted uppercase tracking-widest font-semibold">Pistas por playlist</Text>
             <TouchableOpacity onPress={() => setShowCountOptions(!showCountOptions)}>
-              <Text className="text-xs text-primary font-bold">{playlistCount} ▾</Text>
+              <Text className="text-xs text-primary font-bold">{trackCount} ▾</Text>
             </TouchableOpacity>
           </View>
           {showCountOptions && (
             <View style={{ backgroundColor: 'rgba(18, 18, 24, 0.6)', borderColor: 'rgba(255, 255, 255, 0.08)', borderWidth: 1, borderRadius: 16 }} className="p-3 flex-row justify-around">
-              {[1, 3, 5, 10].map((num) => (
+              {TRACK_COUNTS.map((num) => (
                 <TouchableOpacity
                   key={num}
                   onPress={() => {
-                    setPlaylistCount(num);
+                    setTrackCount(num);
                     setShowCountOptions(false);
                   }}
-                  style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, backgroundColor: playlistCount === num ? '#c084fc' : 'transparent' }}
+                  style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, backgroundColor: trackCount === num ? '#c084fc' : 'transparent' }}
                 >
-                  <Text style={{ color: playlistCount === num ? '#151718' : '#ECEDEE', fontWeight: 'bold' }}>{num}</Text>
+                  <Text style={{ color: trackCount === num ? '#151718' : '#ECEDEE', fontWeight: 'bold' }}>{num}</Text>
                 </TouchableOpacity>
               ))}
             </View>

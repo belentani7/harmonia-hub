@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
+import { normalizeIntent, normalizePlatform, normalizeTrackCount, suggestMood, type PlatformPreference } from '@/shared/music-intent';
 import {
   View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator, FlatList, Image, Alert,
 } from 'react-native';
@@ -25,14 +27,28 @@ const MOODS: { id: Mood; label: string; emoji: string }[] = [
 ];
 
 export default function DiscoverScreen() {
+  const params = useLocalSearchParams<{ prompt?: string; platform?: string; count?: string }>();
+  const intent = normalizeIntent(params.prompt);
+  const requestedPlatform = normalizePlatform(params.platform);
+  const initialCount = normalizeTrackCount(params.count);
+  // A new intention remounts only this experience, not the application shell.
+  const key = [intent, requestedPlatform ?? '', initialCount].join('|');
+  return <DiscoverExperience key={key} intent={intent} requestedPlatform={requestedPlatform} initialCount={initialCount} />;
+}
+
+function DiscoverExperience({ intent, requestedPlatform, initialCount }: {
+  intent: string;
+  requestedPlatform: PlatformPreference | null;
+  initialCount: number;
+}) {
   const { playTrack, openPlayer } = usePlayer();
   const { savePlaylist } = useLibrary();
-  const [selectedMood, setSelectedMood] = useState<Mood | null>(null);
+  const [selectedMood, setSelectedMood] = useState<Mood | null>(() => suggestMood(intent));
   const [generatedPlaylist, setGeneratedPlaylist] = useState<Playlist | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [creativity, setCreativity] = useState<'high' | 'low'>('high');
   const [strictMode, setStrictMode] = useState(false);
-  const [trackCount, setTrackCount] = useState(8);
+  const [trackCount, setTrackCount] = useState(initialCount);
 
   const generateMutation = trpc.playlist.generate.useMutation({
     onSuccess: (data: any) => {
@@ -54,6 +70,7 @@ export default function DiscoverScreen() {
     try {
       await generateMutation.mutateAsync({
         mood: selectedMood,
+        intent: intent || undefined,
         trackCount,
         creativity,
         strictMode,
@@ -77,8 +94,16 @@ export default function DiscoverScreen() {
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.title}>AI Generator</Text>
-          <Text style={styles.subtitle}>Define tu intención; la IA explicará cada selección.</Text>
+            <Text style={styles.title}>HARMONÍA / GENERADOR</Text>
+            <Text style={styles.subtitle}>La intención que escribiste llega al generador; el mood define la estructura musical de la selección.</Text>
+            {intent ? (
+              <View style={{ backgroundColor: '#261a32', borderColor: '#a78bfa55', borderWidth: 1, borderRadius: 15, marginTop: 12, padding: 15 }}>
+                <Text style={{ color: '#C4B5FD', fontSize: 10, fontWeight: '800', letterSpacing: 1.4 }}>TU INTENCIÓN MUSICAL</Text>
+                <Text selectable style={{ color: '#FFFFFF', fontSize: 14, lineHeight: 21, marginTop: 7 }}>{intent}</Text>
+                <Text style={{ color: '#BEB5CD', fontSize: 12, lineHeight: 18, marginTop: 9 }}>Mood sugerido por palabras clave cuando es posible. Puedes corregirlo antes de generar.</Text>
+              </View>
+            ) : null}
+            {requestedPlatform ? <Text style={{ color: '#9CA3AF', marginTop: 10, fontSize: 12 }}>Preferencia de destino: {requestedPlatform}. Todavía no existe integración de exportación ni reproducción con ese proveedor.</Text> : null}
           </View>
 
           {/* Mood Grid */}
@@ -87,6 +112,9 @@ export default function DiscoverScreen() {
               {MOODS.map(mood => (
                 <Pressable
                   key={mood.id}
+                  accessibilityRole="radio"
+                  accessibilityLabel={mood.label}
+                  accessibilityState={{ selected: selectedMood === mood.id }}
                   onPress={() => setSelectedMood(selectedMood === mood.id ? null : mood.id)}
                   style={({ pressed }) => [
                     styles.moodBtn,
@@ -115,7 +143,7 @@ export default function DiscoverScreen() {
             />
               <Text style={styles.advancedLabel}>Ajustes de generación</Text>
             <View style={styles.advancedBadge}>
-              <Text style={styles.advancedBadgeText}>Pro</Text>
+              <Text style={styles.advancedBadgeText}>Opcional</Text>
             </View>
           </Pressable>
 
@@ -187,6 +215,8 @@ export default function DiscoverScreen() {
           <View style={styles.generateContainer}>
             <Pressable
               onPress={handleGenerate}
+              accessibilityRole="button"
+              accessibilityLabel={generateMutation.isPending ? "Generando playlist" : "Generar playlist musical"}
               disabled={generateMutation.isPending || !selectedMood}
               style={({ pressed }) => [
                 styles.generateBtn,
@@ -221,7 +251,7 @@ export default function DiscoverScreen() {
                   <Text style={styles.playlistDescription} numberOfLines={2}>
                     {generatedPlaylist.description}
                   </Text>
-                  <Text style={styles.playlistCount}>{generatedPlaylist.tracks.length} tracks</Text>
+                  <Text style={styles.playlistCount}>{generatedPlaylist.tracks.length} pistas · Sugerencias IA, catálogo no verificado</Text>
                 </View>
               </View>
 

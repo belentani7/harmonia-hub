@@ -1,86 +1,52 @@
-import { describe, it, expect } from 'vitest';
-import { z } from 'zod';
+import { describe, expect, it } from "vitest";
+import { playlistGenerateInputSchema } from "../shared/playlist-input";
 
-// Test the input validation schema directly
-const playlistInputSchema = z.object({
-  mood: z.enum(['focus', 'chill', 'energy', 'sad', 'party', 'sleep', 'romantic', 'workout']),
-  context: z.enum(['work', 'gym', 'sleep', 'drive', 'study', 'party', 'meditation']).optional(),
-  genres: z.array(z.string()).optional(),
-  trackCount: z.number().min(4).max(20).default(8),
-});
-
-describe('Playlist Input Validation', () => {
-  it('should accept valid mood values', () => {
-    const validMoods = ['focus', 'chill', 'energy', 'sad', 'party', 'sleep', 'romantic', 'workout'];
-    
-    validMoods.forEach(mood => {
-      const result = playlistInputSchema.safeParse({
-        mood,
+describe("Playlist generation — router's real input contract", () => {
+  it("accepts every track count offered by the homepage", () => {
+    for (const trackCount of [4, 8, 12, 20]) {
+      const parsed = playlistGenerateInputSchema.safeParse({
+        mood: "focus",
+        trackCount,
+        intent: "  música para trabajar  ",
       });
-      expect(result.success).toBe(true);
-    });
-  });
-
-  it('should reject invalid mood values', () => {
-    const result = playlistInputSchema.safeParse({
-      mood: 'invalid',
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it('should accept valid context values', () => {
-    const result = playlistInputSchema.safeParse({
-      mood: 'focus',
-      context: 'work',
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it('should make context optional', () => {
-    const result = playlistInputSchema.safeParse({
-      mood: 'focus',
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it('should enforce trackCount minimum of 4', () => {
-    const result = playlistInputSchema.safeParse({
-      mood: 'focus',
-      trackCount: 3,
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it('should enforce trackCount maximum of 20', () => {
-    const result = playlistInputSchema.safeParse({
-      mood: 'focus',
-      trackCount: 21,
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it('should use default trackCount of 8', () => {
-    const result = playlistInputSchema.safeParse({
-      mood: 'focus',
-    });
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.trackCount).toBe(8);
+      expect(parsed.success).toBe(true);
+      if (parsed.success) {
+        expect(parsed.data.trackCount).toBe(trackCount);
+        expect(parsed.data.intent).toBe("música para trabajar");
+      }
     }
   });
 
-  it('should accept array of genres', () => {
-    const result = playlistInputSchema.safeParse({
-      mood: 'focus',
-      genres: ['electronic', 'indie', 'pop'],
+  it("defaults to eight tracks with optional preference fields", () => {
+    expect(playlistGenerateInputSchema.parse({ mood: "chill" })).toMatchObject({
+      trackCount: 8,
+      creativity: "high",
+      strictMode: false,
     });
-    expect(result.success).toBe(true);
   });
 
-  it('should make genres optional', () => {
-    const result = playlistInputSchema.safeParse({
-      mood: 'focus',
-    });
-    expect(result.success).toBe(true);
+  it("rejects invalid counts, unknown mood and overlong intent", () => {
+    for (const trackCount of [0, 3, 21, 7.5]) {
+      expect(playlistGenerateInputSchema.safeParse({ mood: "focus", trackCount }).success).toBe(false);
+    }
+    expect(playlistGenerateInputSchema.safeParse({ mood: "invalid" }).success).toBe(false);
+    expect(playlistGenerateInputSchema.safeParse({
+      mood: "focus",
+      intent: "x".repeat(241),
+    }).success).toBe(false);
+  });
+
+  it("supports a known context and a bounded genre list", () => {
+    expect(playlistGenerateInputSchema.safeParse({
+      mood: "energy",
+      intent: "Música para conducir",
+      context: "drive",
+      genres: ["rock", "pop"],
+      trackCount: 12,
+    }).success).toBe(true);
+    expect(playlistGenerateInputSchema.safeParse({
+      mood: "energy",
+      genres: ["y".repeat(65)],
+    }).success).toBe(false);
   });
 });
