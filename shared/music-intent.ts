@@ -33,6 +33,14 @@ export function normalizeTrackCount(value: unknown): number {
   return Number.isInteger(numeric) && TRACK_COUNTS.some(x => x === numeric) ? numeric : 8;
 }
 
+/** Step through exactly the track counts accepted by playlist.generate. */
+export function stepTrackCount(value: unknown, direction: -1 | 1): number {
+  const count = normalizeTrackCount(value);
+  const index = TRACK_COUNTS.findIndex(option => option === count);
+  const nextIndex = Math.max(0, Math.min(TRACK_COUNTS.length - 1, index + direction));
+  return TRACK_COUNTS[nextIndex];
+}
+
 /** Suggest a mood from the listener's words, without inventing a model response. */
 export function suggestMood(intent: string): Mood | null {
   const text = normalizeIntent(intent)
