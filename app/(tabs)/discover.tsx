@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useLocalSearchParams } from 'expo-router';
-import { normalizeIntent, normalizePlatform, normalizeTrackCount, suggestMood, type PlatformPreference } from '@/shared/music-intent';
+import { normalizeIntent, normalizePlatform, normalizeTrackCount, stepTrackCount, suggestMood, type PlatformPreference } from '@/shared/music-intent';
 import {
   View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator, FlatList, Image, Alert,
 } from 'react-native';
@@ -190,17 +190,17 @@ function DiscoverExperience({ intent, requestedPlatform, initialCount }: {
               <View style={styles.settingRow}>
                 <View>
                   <Text style={styles.settingLabel}>Tracks</Text>
-                  <Text style={styles.settingValue}>{trackCount}</Text>
+                  <Text style={styles.settingValue}>{trackCount} · opciones 4, 8, 12 o 20</Text>
                 </View>
                 <View style={styles.countControls}>
                   <Pressable
-                    onPress={() => setTrackCount(Math.max(4, trackCount - 1))}
+                    onPress={() => setTrackCount(current => stepTrackCount(current, -1))}
                     style={({ pressed }) => [styles.countBtn, pressed && { opacity: 0.7 }]}
                   >
                     <IconSymbol name="minus" size={14} color={GLASS_COLORS.textPrimary} />
                   </Pressable>
                   <Pressable
-                    onPress={() => setTrackCount(Math.min(20, trackCount + 1))}
+                    onPress={() => setTrackCount(current => stepTrackCount(current, 1))}
                     style={({ pressed }) => [styles.countBtn, pressed && { opacity: 0.7 }]}
                   >
                     <IconSymbol name="plus" size={14} color={GLASS_COLORS.textPrimary} />

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   TRACK_COUNTS, PREFERRED_PLATFORMS, normalizeIntent, normalizePlatform,
-  normalizeTrackCount, suggestMood,
+  normalizeTrackCount, stepTrackCount, suggestMood,
 } from '../shared/music-intent';
 
 describe('HARMONÍA: contract from the intention composer to generator', () => {
@@ -13,6 +13,21 @@ describe('HARMONÍA: contract from the intention composer to generator', () => {
     for (const value of ['1', '3', '5', '10', '-1', 'NaN', '999', '8.5', 'unknown']) {
       expect(normalizeTrackCount(value)).toBe(8);
     }
+  });
+
+  it('only offers track counts accepted by the backend when tapping +/-', () => {
+    let count = 4;
+    for (const expected of [8, 12, 20, 20]) {
+      count = stepTrackCount(count, 1);
+      expect(count).toBe(expected);
+    }
+    for (const expected of [12, 8, 4, 4]) {
+      count = stepTrackCount(count, -1);
+      expect(count).toBe(expected);
+    }
+    expect(stepTrackCount('5', 1)).toBe(12);
+    expect(stepTrackCount('5', -1)).toBe(4);
+    expect(TRACK_COUNTS).toContain(stepTrackCount(8, 1));
   });
 
   it('retains legitimate listening words but limits potentially hostile input', () => {
