@@ -9,7 +9,7 @@ import { COOKIE_NAME } from "../shared/const";
 import { automationJobs, automationRuns, councilAuditLogs, councilControls, crmContacts, musicPlaylists, musicTrackStates } from "../drizzle/schema";
 import { executeAutomationJob } from "./automation/worker";
 import { getDb } from "./db";
-import { playlistGenerateInputSchema } from "../shared/playlist-input";
+import { playlistGenerateInputSchema, validateGeneratedPlaylist } from "../shared/playlist-input";
 
 const MASTER_SYSTEM_PROMPT = `You are the autonomous executive council for BELENTANI, an AI music platform.
 You consist of five AI agents: CEO (Vision & Strategy), COO (Operations), CMO (Brand & Growth), CPO (Product), CTO (Infrastructure).
@@ -170,7 +170,9 @@ Make sure all durations are between 120-300 seconds.`;
 
           const content = response.choices[0].message.content as string;
           const data = JSON.parse(content);
-          return playlistSchema.parse(data);
+          const playlist = playlistSchema.parse(data);
+          validateGeneratedPlaylist(playlist, input);
+          return playlist;
         } catch (error) {
           console.error('LLM playlist generation failed:', error);
           throw new Error('Playlist generation is temporarily unavailable. Please retry.');
