@@ -10,6 +10,7 @@ import { automationJobs, automationRuns, councilAuditLogs, councilControls, crmC
 import { executeAutomationJob } from "./automation/worker";
 import { getDb } from "./db";
 import { playlistGenerateInputSchema, validateGeneratedPlaylist } from "../shared/playlist-input";
+import { desiredLikeState } from "../shared/track-like-state";
 
 const MASTER_SYSTEM_PROMPT = `You are the autonomous executive council for BELENTANI, an AI music platform.
 You consist of five AI agents: CEO (Vision & Strategy), COO (Operations), CMO (Brand & Growth), CPO (Product), CTO (Infrastructure).
@@ -226,12 +227,22 @@ Make sure all durations are between 120-300 seconds.`;
       if (!db) throw new Error('DATABASE_URL is required for library access');
       return db.select().from(musicTrackStates).where(eq(musicTrackStates.userId, ctx.user.id)).orderBy(desc(musicTrackStates.occurredAt));
     }),
-    setTrackState: protectedProcedure.input(z.object({ state: z.enum(['liked', 'recent']), track: trackSchema })).mutation(async ({ input, ctx }) => {
+    setTrackState: protectedProcedure.input(z.object({
+      state: z.enum(['liked', 'recent']),
+      track: trackSchema,
+      // Explicit desired state makes retried like/unlike requests idempotent.
+      // Omission preserves the toggle contract for older clients.
+      active: z.boolean().optional(),
+    })).mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new Error('DATABASE_URL is required for library access');
       const existing = await db.select().from(musicTrackStates).where(and(eq(musicTrackStates.userId, ctx.user.id), eq(musicTrackStates.trackId, input.track.id), eq(musicTrackStates.state, input.state))).limit(1);
-      if (input.state === 'liked' && existing[0]) {
-        await db.delete(musicTrackStates).where(eq(musicTrackStates.id, existing[0].id));
+      if (input.state === 'liked' && !desiredLikeState(Boolean(existing[0]), input.active)) {
+        if (existing[0]) {
+          await db.delete(musicTrackStates).where(and(
+            eq(musicTrackStates.id, existing[0].id), eq(musicTrackStates.userId, ctx.user.id)
+          ));
+        }
         return { success: true, active: false };
       }
       if (existing[0]) {
