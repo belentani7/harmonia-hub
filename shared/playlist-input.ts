@@ -12,3 +12,21 @@ export const playlistGenerateInputSchema = z.object({
 });
 
 export type PlaylistGenerateInput = z.input<typeof playlistGenerateInputSchema>;
+
+
+// Model output is untrusted even when the provider promises JSON schema.
+// Preserve the exact user request and reject duplicate track identities.
+export function validateGeneratedPlaylist(
+  result: { mood?: string; tracks: readonly { id: string }[] },
+  request: { mood: string; trackCount: number },
+): void {
+  if (result.mood !== request.mood) {
+    throw new Error("Generated playlist mood differs from the requested mood");
+  }
+  if (result.tracks.length !== request.trackCount) {
+    throw new Error("Generated playlist contains the wrong number of tracks");
+  }
+  if (new Set(result.tracks.map(track => track.id)).size !== result.tracks.length) {
+    throw new Error("Generated playlist contains duplicate track IDs");
+  }
+}
