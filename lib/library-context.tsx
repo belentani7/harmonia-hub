@@ -1,9 +1,10 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 import { useAuth } from "@/hooks/use-auth";
 import { trpc } from "@/lib/trpc";
 import type { Playlist, Track } from "@/shared/types";
+import { desiredLikeState } from "@/shared/track-like-state";
 
 const STORAGE_KEY = "belentani.library.v1";
 const RECENT_LIMIT = 24;
@@ -35,6 +36,10 @@ function isSnapshot(value: unknown): value is LibrarySnapshot {
 
 export function LibraryProvider({ children }: { children: React.ReactNode }) {
   const [snapshot, setSnapshot] = useState<LibrarySnapshot>(emptySnapshot);
+  // Synchronous intent tracking prevents two rapid presses from reading the
+  // same stale rendered snapshot before React commits the first update.
+  const likedTracksRef = useRef(snapshot.likedTracks);
+  useEffect(() => { likedTracksRef.current = snapshot.likedTracks; }, [snapshot.likedTracks]);
   const [hydrated, setHydrated] = useState(false);
   const { isAuthenticated } = useAuth();
   const remotePlaylists = trpc.library.listPlaylists.useQuery(undefined, { enabled: isAuthenticated });
@@ -105,13 +110,14 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
   }, [isAuthenticated, removePlaylistRemote, updateSnapshot]);
 
   const toggleLike = useCallback((track: Track) => {
-    updateSnapshot((current) => {
-      const likedTracks = { ...current.likedTracks };
-      if (likedTracks[track.id]) delete likedTracks[track.id];
-      else likedTracks[track.id] = track;
-      return { ...current, likedTracks };
-    });
-    if (isAuthenticated) setTrackStateRemote.mutate({ state: 'liked', track });
+    const likedTracks = { ...likedTracksRef.current };
+    const active = desiredLikeState(Boolean(likedTracks[track.id]));
+    if (active) likedTracks[track.id] = track;
+    else delete likedTracks[track.id];
+    likedTracksRef.current = likedTracks;
+    updateSnapshot((current) => ({ ...current, likedTracks }));
+    // Send the intended result, not a toggle: retries can no longer invert it.
+    if (isAuthenticated) setTrackStateRemote.mutate({ state: 'liked', track, active });
   }, [isAuthenticated, setTrackStateRemote, updateSnapshot]);
 
   const recordRecent = useCallback((track: Track) => {
