@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { createHash } from 'node:crypto';
 import { PVCUValidator, verifyEnvelopeSignature } from '../server/_core/pvc-u-profile';
 import { PVCULedger, type LedgerRecord } from '../server/_core/pvc-u-ledger';
 
@@ -52,6 +53,10 @@ describe('Full-Stack Integration & PVC-U Protocol Test', () => {
     // Adversarial test bypassing the TypeScript private modifier.
     const internal = (ledger as unknown as { records: LedgerRecord[] }).records;
     internal[0].workflowId = 'forged-workflow';
+    const rec = internal[0];
+    const publicHashPayload = `${rec.sequenceId}:${rec.workflowId}:${rec.envelope.envelopeId}:${rec.envelope.inputHash}:${rec.previousHash}`;
+    rec.recordHash = createHash('sha256').update(publicHashPayload).digest('hex');
+    // Even a perfectly recalculated public SHA-256 hash cannot forge the HMAC.
     expect(ledger.verifyIntegrity()).toBe(false);
   });
 });
