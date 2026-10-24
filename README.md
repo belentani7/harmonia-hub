@@ -960,3 +960,9 @@ export default config;
   "packageManager": "pnpm@9.12.0"
 }
 ```
+
+## Seguridad de PVC-U en producción
+
+Los Validation Envelopes y los registros del ledger se autentican mediante HMAC-SHA256. La aplicación **no debe ejecutarse en producción** sin la variable de servidor `PVCU_HMAC_SECRET`, con un valor aleatorio de **al menos 32 bytes UTF-8**. Configúrala mediante el gestor de secretos del despliegue, nunca en el repositorio, navegador ni archivos de log. Todos los procesos que validan o verifican registros deben utilizar la misma clave; la rotación requiere una estrategia de versionado de claves para registros persistidos.
+
+En desarrollo se usa una clave aleatoria efímera por proceso; sus firmas no son portables entre reinicios y no deben utilizarse como evidencia persistente. Para verificar cambios ejecuta `pnpm test`, `pnpm check` y `pnpm build` antes de desplegar. Una rama de reparación no implica que la producción ya esté protegida.
