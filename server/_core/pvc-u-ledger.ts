@@ -4,7 +4,7 @@
  */
 
 import crypto from 'crypto';
-import { ValidationEnvelope } from './pvc-u-profile';
+import { ValidationEnvelope, verifyEnvelopeSignature } from './pvc-u-profile';
 
 export interface LedgerRecord {
   sequenceId: number;
@@ -24,10 +24,13 @@ export class PVCULedger {
     const payload = `${sequenceId}:${workflowId}:${envelope.envelopeId}:${envelope.inputHash}:${previousHash}`;
     const recordHash = crypto.createHash('sha256').update(payload).digest('hex');
 
+    if (!verifyEnvelopeSignature(envelope)) {
+      throw new Error('Invalid validation-envelope signature');
+    }
     const record: LedgerRecord = {
       sequenceId,
       workflowId,
-      envelope,
+      envelope: structuredClone(envelope),
       previousHash,
       recordHash,
     };
@@ -37,14 +40,20 @@ export class PVCULedger {
   }
 
   public getRecords(): LedgerRecord[] {
-    return [...this.records];
+    // Never return references to the internal append-only chain.
+    return structuredClone(this.records);
   }
 
   public verifyIntegrity(): boolean {
+    let previous = '0'.repeat(64);
     for (let i = 0; i < this.records.length; i++) {
       const rec = this.records[i];
-      const prevHash = i === 0 ? '0000000000000000000000000000000000000000000000000000000000000000' : this.records[i - 1].recordHash;
-      if (rec.previousHash !== prevHash) return false;
+      if (rec.sequenceId !== i + 1 || rec.previousHash !== previous) return false;
+      if (!verifyEnvelopeSignature(rec.envelope)) return false;
+      const payload = `${rec.sequenceId}:${rec.workflowId}:${rec.envelope.envelopeId}:${rec.envelope.inputHash}:${previous}`;
+      const expected = crypto.createHash('sha256').update(payload).digest('hex');
+      if (rec.recordHash !== expected) return false;
+      previous = expected;
     }
     return true;
   }
