@@ -4,7 +4,7 @@
  */
 
 import crypto from 'crypto';
-import { ValidationEnvelope, verifyEnvelopeSignature } from './pvc-u-profile';
+import { ValidationEnvelope, verifyEnvelopeSignature, signLedgerPayload, verifyLedgerPayload } from './pvc-u-profile';
 
 export interface LedgerRecord {
   sequenceId: number;
@@ -12,6 +12,7 @@ export interface LedgerRecord {
   envelope: ValidationEnvelope;
   previousHash: string;
   recordHash: string;
+  recordMac: string;
 }
 
 export class PVCULedger {
@@ -33,6 +34,7 @@ export class PVCULedger {
       envelope: structuredClone(envelope),
       previousHash,
       recordHash,
+      recordMac: signLedgerPayload(payload),
     };
 
     this.records.push(record);
@@ -53,6 +55,7 @@ export class PVCULedger {
       const payload = `${rec.sequenceId}:${rec.workflowId}:${rec.envelope.envelopeId}:${rec.envelope.inputHash}:${previous}`;
       const expected = crypto.createHash('sha256').update(payload).digest('hex');
       if (rec.recordHash !== expected) return false;
+      if (!verifyLedgerPayload(payload, rec.recordMac)) return false;
       previous = expected;
     }
     return true;
