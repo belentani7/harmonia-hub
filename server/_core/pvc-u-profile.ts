@@ -35,6 +35,17 @@ function envelopeMac(envelope: Omit<ValidationEnvelope, 'signature'> | Validatio
   return crypto.createHmac('sha256', signingKey()).update(unsignedEnvelope(envelope)).digest();
 }
 
+export function signLedgerPayload(payload: string): string {
+  return crypto.createHmac('sha256', signingKey()).update('pvc-ledger-v1:' + payload).digest('hex');
+}
+
+export function verifyLedgerPayload(payload: string, signature: string): boolean {
+  if (typeof signature !== 'string' || !/^[a-f0-9]{64}$/.test(signature)) return false;
+  const supplied = Buffer.from(signature, 'hex');
+  const expected = Buffer.from(signLedgerPayload(payload), 'hex');
+  return crypto.timingSafeEqual(supplied, expected);
+}
+
 export function verifyEnvelopeSignature(envelope: ValidationEnvelope): boolean {
   if (typeof envelope.signature !== 'string' || !/^[a-f0-9]{64}$/.test(envelope.signature)) return false;
   const received = Buffer.from(envelope.signature, 'hex');
