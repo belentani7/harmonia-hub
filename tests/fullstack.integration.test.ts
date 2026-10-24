@@ -43,7 +43,10 @@ describe('Full-Stack Integration & PVC-U Protocol Test', () => {
       '<p>Enough content to create a valid signed append-only ledger record.</p>'
     );
     const originalHash = envelope.inputHash;
-    ledger.append('workflow-a', envelope);
+    const returned = ledger.append('workflow-a', envelope);
+    // The original input and the returned entry must both be detached from the ledger.
+    returned.workflowId = 'altered-returned-entry';
+    returned.envelope.inputHash = 'altered-returned-envelope';
     envelope.inputHash = 'mutated-after-append';
     const externalCopy = ledger.getRecords();
     externalCopy[0].envelope.inputHash = 'mutated-external-copy';
