@@ -5,6 +5,53 @@
 
 import crypto from 'crypto';
 
+// Development instances use an ephemeral key; production must configure a
+// private, >=32-byte server-side secret. Never ship a default HMAC key.
+const developmentKey = crypto.randomBytes(32);
+function signingKey(): Buffer {
+  const configured = process.env.PVCU_HMAC_SECRET;
+  if (configured && Buffer.byteLength(configured, 'utf8') >= 32) {
+    return Buffer.from(configured, 'utf8');
+  }
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('PVCU_HMAC_SECRET must be configured with at least 32 bytes');
+  }
+  return developmentKey;
+}
+
+function unsignedEnvelope(envelope: Omit<ValidationEnvelope, 'signature'> | ValidationEnvelope) {
+  return JSON.stringify({
+    envelopeId: envelope.envelopeId,
+    timestamp: envelope.timestamp,
+    profileVersion: envelope.profileVersion,
+    spheresChecked: envelope.spheresChecked,
+    passed: envelope.passed,
+    violations: envelope.violations,
+    inputHash: envelope.inputHash,
+  });
+}
+
+function envelopeMac(envelope: Omit<ValidationEnvelope, 'signature'> | ValidationEnvelope): Buffer {
+  return crypto.createHmac('sha256', signingKey()).update(unsignedEnvelope(envelope)).digest();
+}
+
+export function signLedgerPayload(payload: string): string {
+  return crypto.createHmac('sha256', signingKey()).update('pvc-ledger-v1:' + payload).digest('hex');
+}
+
+export function verifyLedgerPayload(payload: string, signature: string): boolean {
+  if (typeof signature !== 'string' || !/^[a-f0-9]{64}$/.test(signature)) return false;
+  const supplied = Buffer.from(signature, 'hex');
+  const expected = Buffer.from(signLedgerPayload(payload), 'hex');
+  return crypto.timingSafeEqual(supplied, expected);
+}
+
+export function verifyEnvelopeSignature(envelope: ValidationEnvelope): boolean {
+  if (typeof envelope.signature !== 'string' || !/^[a-f0-9]{64}$/.test(envelope.signature)) return false;
+  const received = Buffer.from(envelope.signature, 'hex');
+  return crypto.timingSafeEqual(received, envelopeMac(envelope));
+}
+
 export interface ValidationEnvelope {
   envelopeId: string;
   timestamp: string;
@@ -17,7 +64,7 @@ export interface ValidationEnvelope {
 }
 
 export class PVCUValidator {
-  private profileVersion = '1.0.0';
+  private profileVersion = '1.1.0';
 
   /**
    * Ejecuta la validación completa sobre el contenido extraído y metadatos de la URL.
@@ -51,11 +98,12 @@ export class PVCUValidator {
     }
 
     const passed = violations.length === 0;
-    const inputHash = crypto.createHash('sha256').update(htmlContent + url).digest('hex');
-    const envelopeId = `env_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    const signature = crypto.createHmac('sha256', 'pvc-u-secret').update(envelopeId + inputHash).digest('hex');
-
-    return {
+    const inputHash = crypto.createHash('sha256')
+      .update('pvc-u-input-v2\u0000')
+      .update(JSON.stringify([url, title, htmlContent]))
+      .digest('hex');
+    const envelopeId = `env_${crypto.randomUUID()}`;
+    const unsigned = {
       envelopeId,
       timestamp: new Date().toISOString(),
       profileVersion: this.profileVersion,
@@ -63,7 +111,9 @@ export class PVCUValidator {
       passed,
       violations,
       inputHash,
-      signature,
     };
+    const signature = envelopeMac(unsigned).toString('hex');
+
+    return { ...unsigned, signature };
   }
 }
