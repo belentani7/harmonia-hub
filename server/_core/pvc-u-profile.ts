@@ -64,7 +64,7 @@ export interface ValidationEnvelope {
 }
 
 export class PVCUValidator {
-  private profileVersion = '1.0.0';
+  private profileVersion = '1.1.0';
 
   /**
    * Ejecuta la validación completa sobre el contenido extraído y metadatos de la URL.
@@ -98,8 +98,11 @@ export class PVCUValidator {
     }
 
     const passed = violations.length === 0;
-    const inputHash = crypto.createHash('sha256').update(htmlContent + url).digest('hex');
-    const envelopeId = `env_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const inputHash = crypto.createHash('sha256')
+      .update('pvc-u-input-v2\u0000')
+      .update(JSON.stringify([url, title, htmlContent]))
+      .digest('hex');
+    const envelopeId = `env_${crypto.randomUUID()}`;
     const unsigned = {
       envelopeId,
       timestamp: new Date().toISOString(),
