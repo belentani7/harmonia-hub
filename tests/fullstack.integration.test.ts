@@ -21,6 +21,19 @@ describe('Full-Stack Integration & PVC-U Protocol Test', () => {
     expect(ledger.verifyIntegrity()).toBe(true);
   });
 
+  it('binds the source URL, article title and body independently', () => {
+    const validator = new PVCUValidator();
+    const body = '<p>Sufficient text to make this a valid news article.</p>';
+    const first = validator.validateExtraction('https://example.com/a', 'Title A', body);
+    const second = validator.validateExtraction('https://example.com/a', 'Title B', body);
+    const third = validator.validateExtraction('https://example.com/b', 'Title A', body);
+    const fourth = validator.validateExtraction('https://example.com/a', 'Title A', body + ' Updated');
+    expect(first.inputHash).not.toBe(second.inputHash);
+    expect(first.inputHash).not.toBe(third.inputHash);
+    expect(first.inputHash).not.toBe(fourth.inputHash);
+    expect(first.profileVersion).toBe('1.1.0');
+  });
+
   it('rejects an envelope whose signed validation fields were modified', () => {
     const validator = new PVCUValidator();
     const envelope = validator.validateExtraction(
