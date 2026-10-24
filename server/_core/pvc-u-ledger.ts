@@ -38,7 +38,8 @@ export class PVCULedger {
     };
 
     this.records.push(record);
-    return record;
+    // Never leak a mutable reference to an internal ledger entry.
+    return structuredClone(record);
   }
 
   public getRecords(): LedgerRecord[] {
